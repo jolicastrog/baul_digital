@@ -1,0 +1,7 @@
+datosPrivados.txt
+node_modules/
+.next/
+.env*
+.env.local
+
+
