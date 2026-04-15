@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 
-function getSupabase() {
+// Cliente admin — bypasea RLS para operaciones del servidor
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+function getAnonSupabase() {
   const cookieStore = cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,7 +29,7 @@ function getSupabase() {
 
 export async function GET(_request: Request) {
   try {
-    const supabase = getSupabase();
+    const supabase = getAnonSupabase();
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -30,19 +37,19 @@ export async function GET(_request: Request) {
     }
 
     const [docsResult, profileResult, categoriesResult] = await Promise.all([
-      supabase
+      supabaseAdmin
         .from('documents')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false }),
 
-      supabase
+      supabaseAdmin
         .from('profiles')
         .select('plan_type, storage_quota_bytes, storage_used_bytes')
         .eq('id', user.id)
         .single(),
 
-      supabase
+      supabaseAdmin
         .from('categories')
         .select('*')
         .eq('user_id', user.id)
@@ -76,7 +83,7 @@ export async function GET(_request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const supabase = getSupabase();
+    const supabase = getAnonSupabase();
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -88,20 +95,19 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Missing documentId' }, { status: 400 });
     }
 
-    // Buscar el documento para obtener el path y tamaño
-    const { data: doc, error: findError } = await supabase
+    // Buscar el documento — verificar que pertenece al usuario
+    const { data: doc, error: findError } = await supabaseAdmin
       .from('documents')
-      .select('storage_path, file_size_bytes')
+      .select('storage_path, file_size_bytes, user_id')
       .eq('id', documentId)
-      .eq('user_id', user.id)
       .single();
 
-    if (findError || !doc) {
+    if (findError || !doc || doc.user_id !== user.id) {
       return NextResponse.json({ error: 'Documento no encontrado o acceso denegado' }, { status: 404 });
     }
 
     // Eliminar archivo del bucket
-    const { error: storageError } = await supabase.storage
+    const { error: storageError } = await supabaseAdmin.storage
       .from('documents')
       .remove([doc.storage_path]);
 
@@ -110,18 +116,17 @@ export async function DELETE(request: Request) {
     }
 
     // Eliminar registro de la BD
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await supabaseAdmin
       .from('documents')
       .delete()
-      .eq('id', documentId)
-      .eq('user_id', user.id);
+      .eq('id', documentId);
 
     if (deleteError) {
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
     // Liberar cuota de almacenamiento
-    await supabase.rpc('free_storage', {
+    await supabaseAdmin.rpc('free_storage', {
       p_user_id: user.id,
       p_file_size_bytes: doc.file_size_bytes,
     });

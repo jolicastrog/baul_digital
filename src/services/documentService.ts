@@ -21,49 +21,23 @@ const storageType = process.env.NEXT_PUBLIC_STORAGE_TYPE || 'supabase';
 /**
  * Obtiene información de cuota de almacenamiento del usuario
  */
-export async function getStorageQuota(userId: string): Promise<StorageQuotaInfo> {
-  if (storageType === 'local' || !isProduction) {
-    try {
-      const res = await fetch('/api/documents');
-      if (res.ok) {
-        const data = await res.json();
-        return data.quota;
-      }
-    } catch (e) {
-      console.error('Error fetching local quota');
+export async function getStorageQuota(_userId: string): Promise<StorageQuotaInfo> {
+  // Siempre usamos la API del servidor que tiene sesión autenticada
+  try {
+    const res = await fetch('/api/documents');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.quota) return data.quota;
     }
-    return {
-      total_bytes: 5368709120, // 5GB fallback
-      used_bytes: 0,
-      available_bytes: 5368709120,
-      percentage_used: 0,
-      plan_type: 'free',
-    };
+  } catch (e) {
+    console.error('Error fetching quota:', e);
   }
-
-  const supabase = getSupabaseClient();
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('storage_quota_bytes, storage_used_bytes, plan_type')
-    .eq('id', userId)
-    .single();
-
-  if (error) {
-    console.error('Error fetching storage quota:', error);
-    throw new Error('No se pudo obtener información de almacenamiento.');
-  }
-
-  const total_bytes = data.storage_quota_bytes;
-  const used_bytes = data.storage_used_bytes;
-  const available_bytes = Math.max(0, total_bytes - used_bytes);
-
   return {
-    total_bytes,
-    used_bytes,
-    available_bytes,
-    percentage_used: (used_bytes / total_bytes) * 100,
-    plan_type: data.plan_type as PlanType,
+    total_bytes: 20971520,
+    used_bytes: 0,
+    available_bytes: 20971520,
+    percentage_used: 0,
+    plan_type: PlanType.FREE,
   };
 }
 
@@ -79,136 +53,28 @@ export async function canUploadFile(userId: string, fileSizeBytes: number): Prom
  * Sube un documento a Supabase Storage y crea registro en BD o a través del endpoint local
  */
 export async function uploadDocument(
-  userId: string,
+  _userId: string,
   payload: DocumentUploadPayload
 ): Promise<UploadResult> {
-  if (storageType === 'local' || !isProduction) {
+  try {
+    // Procesar archivo antes de enviar (compresión de imágenes)
+    const processedFile = await processFile(payload.file);
+
     const formData = new FormData();
-    formData.append('file', payload.file);
+    formData.append('file', processedFile);
     if (payload.category_id) formData.append('categoryId', payload.category_id);
     if (payload.expiry_date) formData.append('expiryDate', payload.expiry_date.toISOString().split('T')[0]);
 
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        return { success: false, error: data.error || 'Error local al subir archivo' };
-      }
-      return { success: true, document: data.document };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Error local' };
-    }
-  }
-
-  const supabase = getSupabaseClient();
-
-  try {
-    // 1. Procesar archivo (validación y compresión)
-    const processedFile = await processFile(payload.file);
-
-    // 2. Verificar cuota disponible
-    const canUpload = await canUploadFile(userId, processedFile.size);
-    if (!canUpload) {
-      const quota = await getStorageQuota(userId);
-      return {
-        success: false,
-        error: `No hay suficiente espacio. Disponible: ${formatBytes(quota.available_bytes)}`,
-      };
-    }
-
-    // 3. Obtener datos de categoría si existe
-    let categoryName = 'Otros';
-    if (payload.category_id) {
-      const { data: category } = await supabase
-        .from('categories')
-        .select('name')
-        .eq('id', payload.category_id)
-        .single();
-
-      if (category) {
-        categoryName = category.name;
-      }
-    }
-
-    // 4. Generar ruta de almacenamiento
-    const storagePath = generateStoragePath(userId, categoryName, processedFile.name);
-
-    // 5. Subir archivo a Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from(STORAGE_BUCKET)
-      .upload(storagePath, processedFile, {
-        cacheControl: '31536000', // 1 año
-        upsert: false,
-      });
-
-    if (uploadError) {
-      console.error('Storage upload error:', uploadError);
-      return {
-        success: false,
-        error: 'Error al subir el archivo. Por favor, intenta de nuevo.',
-      };
-    }
-
-    // 6. Crear registro en base de datos
-    const { data: document, error: dbError } = await supabase
-      .from('documents')
-      .insert({
-        user_id: userId,
-        category_id: payload.category_id || null,
-        file_name: processedFile.name,
-        file_size_bytes: processedFile.size,
-        file_type: processedFile.type,
-        storage_path: storagePath,
-        description: payload.description || null,
-        expiry_date: payload.expiry_date ? payload.expiry_date.toISOString().split('T')[0] : null,
-        tags: payload.tags || [],
-        access_level: payload.access_level || 'private',
-      })
-      .select()
-      .single();
-
-    if (dbError) {
-      console.error('Database insert error:', dbError);
-      // Intenta eliminar el archivo si falla inserción en BD
-      await supabase.storage.from(STORAGE_BUCKET).remove([storagePath]);
-      return {
-        success: false,
-        error: 'Error al registrar el documento. Por favor, intenta de nuevo.',
-      };
-    }
-
-    // 7. Actualizar storage usado en perfil
-    await supabase.rpc('update_storage_used', {
-      p_user_id: userId,
-      p_file_size_bytes: processedFile.size,
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
     });
 
-    // 8. Generar signed URL para descargar
-    const { data: signedUrlData } = await supabase.storage
-      .from(STORAGE_BUCKET)
-      .createSignedUrl(storagePath, SIGNED_URL_EXPIRY);
-
-    // 9. Registrar en audit log
-    await supabase.from('audit_logs').insert({
-      user_id: userId,
-      action: 'DOCUMENT_UPLOADED',
-      resource_type: 'document',
-      resource_id: document.id,
-      details: {
-        file_name: processedFile.name,
-        file_size: processedFile.size,
-        category: categoryName,
-      },
-    });
-
-    return {
-      success: true,
-      document: document as Document,
-      signedUrl: signedUrlData?.signedUrl,
-    };
+    const data = await res.json();
+    if (!res.ok) {
+      return { success: false, error: data.error || 'Error al subir el archivo' };
+    }
+    return { success: true, document: data.document, signedUrl: data.signedUrl };
   } catch (error) {
     console.error('Upload document error:', error);
     return {

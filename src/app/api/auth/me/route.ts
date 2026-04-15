@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
+
+// Cliente admin para consultas de BD sin restricción RLS
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
 
+    // Solo usamos el cliente anon para verificar la sesión
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -27,7 +35,8 @@ export async function GET() {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
+    // Usamos admin para leer el perfil sin que RLS interfiera
+    const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('full_name, email, plan_type, storage_used_bytes, storage_quota_bytes')
       .eq('id', user.id)

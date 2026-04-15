@@ -5,7 +5,7 @@ import { Upload, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { processFile, formatBytes, validateFile } from '@/utils/fileValidation';
 import { uploadDocument, getStorageQuota } from '@/services/documentService';
-import { Document, DocumentUploadPayload, StorageQuotaInfo } from '@/types';
+import { Document, DocumentUploadPayload, StorageQuotaInfo, DocumentAccessLevel } from '@/types';
 
 export interface FileUploadProps {
   userId: string;
@@ -78,7 +78,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           file,
           category_id: selectedCategory || undefined,
           expiry_date: expiryDate ? new Date(expiryDate) : undefined,
-          access_level: 'private',
+          access_level: DocumentAccessLevel.PRIVATE,
         };
 
         const result = await uploadDocument(userId, payload);
@@ -229,8 +229,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         onClick={() => fileInputRef.current?.click()}
         className={cn(
           'relative rounded-2xl border-2 border-dashed p-8 transition-all cursor-pointer',
-          'hover:border-primary-blue hover:bg-blue-50',
-          dragCounter.current > 0 && 'border-primary-blue bg-blue-50',
+          'border-slate-700 hover:border-blue-500 hover:bg-blue-500/5',
+          dragCounter.current > 0 && 'border-blue-500 bg-blue-500/5',
           state.isUploading && 'opacity-50 cursor-not-allowed'
         )}
       >
@@ -246,7 +246,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         <div className="flex flex-col items-center justify-center space-y-3">
           <Upload className="h-12 w-12 text-primary-blue" />
           <div className="text-center">
-            <p className="text-lg font-semibold text-slate-900">
+            <p className="text-lg font-semibold text-slate-200">
               {state.isUploading ? 'Cargando...' : 'Arrastra archivos aquí'}
             </p>
             <p className="text-sm text-slate-500 mt-1">
@@ -300,11 +300,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
       {/* Mensaje de error */}
       {state.error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 p-4 flex items-start space-x-3">
-          <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+        <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-4 flex items-start space-x-3">
+          <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium text-red-900">Error</p>
-            <p className="text-sm text-red-700 mt-1">{state.error}</p>
+            <p className="font-medium text-red-400">Error al subir</p>
+            <p className="text-sm text-red-300 mt-1">{state.error}</p>
           </div>
         </div>
       )}

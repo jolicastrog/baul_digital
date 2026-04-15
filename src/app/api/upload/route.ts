@@ -1,85 +1,159 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from '@/lib/session';
-import { getDatabaseClient } from '@/lib/database';
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 
-const isProduction = process.env.NEXT_PUBLIC_APP_ENV === 'production';
-const storageType = process.env.NEXT_PUBLIC_STORAGE_TYPE || 'supabase';
+const STORAGE_BUCKET = 'documents';
+const SIGNED_URL_EXPIRY = 15 * 60; // 15 minutos
+
+// Cliente con anon key — solo para verificar la sesión del usuario
+function getAnonSupabase() {
+  const cookieStore = cookies();
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll(); },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+}
+
+// Cliente admin con service role — bypasea RLS para operaciones del servidor
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Verificar sesión del usuario con el cliente anon (lee cookies)
+    const supabaseAuth = getAnonSupabase();
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    if (storageType === 'supabase' && isProduction) {
-      return NextResponse.json({ error: 'Use Client SDK for Supabase' }, { status: 400 });
-    }
-
-    // MODO LOCAL
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const categoryId = formData.get('categoryId') as string | null;
     const expiryDate = formData.get('expiryDate') as string | null;
 
     if (!file) {
-      return NextResponse.json({ error: 'Archivo no proporcionado.' }, { status: 400 });
+      return NextResponse.json({ error: 'No se recibió ningún archivo' }, { status: 400 });
     }
 
-    // Basic file validation for local
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const uploadDir = join(process.cwd(), 'public', 'uploads');
-    const filePath = join(uploadDir, fileName);
-    const storagePath = `/uploads/${fileName}`;
+    // 1. Verificar cuota de almacenamiento (admin bypasa RLS)
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('storage_quota_bytes, storage_used_bytes')
+      .eq('id', user.id)
+      .single();
 
-    const client = getDatabaseClient();
-
-    // Check Quota
-    const profileResult = await client.query(
-      'SELECT storage_quota_bytes, storage_used_bytes FROM profiles WHERE id = $1',
-      [session.user.id]
-    );
-    const profile = profileResult.rows[0];
-    if (profile.storage_used_bytes + file.size > profile.storage_quota_bytes) {
-      return NextResponse.json({ error: 'Cuota de almacenamiento excedida.' }, { status: 400 });
+    if (profileError || !profile) {
+      console.error('Profile query error:', profileError);
+      return NextResponse.json({
+        error: 'No se encontró el perfil del usuario',
+        detail: profileError?.message ?? 'profile is null',
+        code: profileError?.code,
+        user_id: user.id,
+      }, { status: 400 });
     }
 
-    // Save File safely
-    await writeFile(filePath, buffer);
+    const available = profile.storage_quota_bytes - profile.storage_used_bytes;
+    if (file.size > available) {
+      return NextResponse.json({
+        error: `Sin espacio disponible. Disponible: ${(available / 1024 / 1024).toFixed(1)}MB`
+      }, { status: 400 });
+    }
 
-    // Insert into DB
-    const insertResult = await client.query(
-      `INSERT INTO documents (
-         user_id, category_id, file_name, file_size_bytes, file_type, storage_path, access_level, expiry_date
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [
-        session.user.id,
-        categoryId || null,
-        file.name,
-        file.size,
-        file.type,
-        storagePath,
-        'private',
-        expiryDate || null
-      ]
-    );
+    // 2. Obtener nombre de categoría para el path
+    let categoryName = 'Otros';
+    if (categoryId) {
+      const { data: cat } = await supabaseAdmin
+        .from('categories')
+        .select('name')
+        .eq('id', categoryId)
+        .single();
+      if (cat) categoryName = cat.name;
+    }
 
-    const newDocument = insertResult.rows[0];
+    // 3. Generar ruta: {userId}/{categoria}/{uuid}.ext
+    const ext = file.name.split('.').pop() || '';
+    const uuid = crypto.randomUUID();
+    const storagePath = `${user.id}/${categoryName}/${uuid}.${ext}`;
 
-    // Update Quota via RPC (or Direct Query since we are raw pg)
-    await client.query(
-      'SELECT update_storage_used($1, $2::BIGINT)',
-      [session.user.id, file.size]
-    );
+    // 4. Subir archivo a Supabase Storage
+    const fileBuffer = await file.arrayBuffer();
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(STORAGE_BUCKET)
+      .upload(storagePath, fileBuffer, {
+        contentType: file.type,
+        cacheControl: '31536000',
+        upsert: false,
+      });
 
-    return NextResponse.json({ success: true, document: newDocument });
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError);
+      return NextResponse.json({ error: 'Error al subir el archivo: ' + uploadError.message }, { status: 500 });
+    }
 
-  } catch (error: any) {
-    console.error('File Upload API Error:', error);
-    return NextResponse.json({ error: 'Error interno del servidor al procesar el archivo.' }, { status: 500 });
+    // 5. Crear registro en documentos
+    const { data: document, error: dbError } = await supabaseAdmin
+      .from('documents')
+      .insert({
+        user_id: user.id,
+        category_id: categoryId || null,
+        file_name: file.name,
+        file_size_bytes: file.size,
+        file_type: file.type,
+        storage_path: storagePath,
+        expiry_date: expiryDate || null,
+        tags: [],
+        access_level: 'private',
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      await supabaseAdmin.storage.from(STORAGE_BUCKET).remove([storagePath]);
+      console.error('DB insert error:', dbError);
+      return NextResponse.json({ error: 'Error al registrar el documento: ' + dbError.message }, { status: 500 });
+    }
+
+    // 6. Actualizar storage usado
+    await supabaseAdmin.rpc('update_storage_used', {
+      p_user_id: user.id,
+      p_file_size_bytes: file.size,
+    });
+
+    // 7. Signed URL para previsualizar
+    const { data: signedUrlData } = await supabaseAdmin.storage
+      .from(STORAGE_BUCKET)
+      .createSignedUrl(storagePath, SIGNED_URL_EXPIRY);
+
+    // 8. Audit log
+    await supabaseAdmin.from('audit_logs').insert({
+      user_id: user.id,
+      action: 'DOCUMENT_UPLOADED',
+      resource_type: 'document',
+      resource_id: document.id,
+      details: { file_name: file.name, file_size: file.size, category: categoryName },
+    });
+
+    return NextResponse.json({
+      success: true,
+      document,
+      signedUrl: signedUrlData?.signedUrl,
+    });
+  } catch (err: any) {
+    console.error('POST /api/upload error:', err);
+    return NextResponse.json({ error: err.message || 'Error interno del servidor' }, { status: 500 });
   }
 }
