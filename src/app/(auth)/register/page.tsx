@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Lock, Mail, ShieldCheck, User, Fingerprint, Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react';
+import LegalFooter from '@/components/LegalFooter';
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 type CedulaTipo = 'CC' | 'TI' | 'RC' | 'CE' | 'PA' | 'NIT' | 'PEP' | 'PPT';
@@ -25,6 +26,7 @@ interface FormErrors {
   nombres?:         string;
   apellidos?:       string;
   cedulaUnica?:     string;
+  acceptTerms?:     string;
 }
 
 // ── Validaciones por tipo de documento ─────────────────────────────────────
@@ -99,6 +101,10 @@ function validateForm(data: FormData): FormErrors {
   return errors;
 }
 
+function validateAcceptTerms(accepted: boolean): string {
+  return accepted ? '' : 'Debes aceptar la Política de Privacidad y los Términos de Uso para continuar.';
+}
+
 function getPasswordStrength(password: string): { label: string; color: string; width: string } {
   if (!password) return { label: '', color: '', width: '0%' };
   let score = 0;
@@ -149,12 +155,14 @@ export default function RegisterPage() {
     cedulaTipo:      'CC',
   });
 
-  const [errors, setErrors]           = useState<FormErrors>({});
-  const [touched, setTouched]         = useState<Partial<Record<keyof FormData, boolean>>>({});
-  const [loading, setLoading]         = useState(false);
-  const [serverError, setServerError] = useState('');
-  const [showPass, setShowPass]       = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [errors, setErrors]             = useState<FormErrors>({});
+  const [touched, setTouched]           = useState<Partial<Record<keyof FormData, boolean>>>({});
+  const [loading, setLoading]           = useState(false);
+  const [serverError, setServerError]   = useState('');
+  const [showPass, setShowPass]         = useState(false);
+  const [showConfirm, setShowConfirm]   = useState(false);
+  const [acceptTerms, setAcceptTerms]   = useState(false);
+  const [termsError, setTermsError]     = useState('');
 
   const passwordStrength = getPasswordStrength(formData.password);
 
@@ -194,7 +202,9 @@ export default function RegisterPage() {
 
     const allErrors = validateForm(formData);
     setErrors(allErrors);
-    if (Object.keys(allErrors).length > 0) return;
+    const termsErr = validateAcceptTerms(acceptTerms);
+    setTermsError(termsErr);
+    if (Object.keys(allErrors).length > 0 || termsErr) return;
 
     setLoading(true);
     try {
@@ -202,12 +212,13 @@ export default function RegisterPage() {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          email:       formData.email.trim(),
-          password:    formData.password,
-          nombres:     formData.nombres.trim(),
-          apellidos:   formData.apellidos.trim(),
-          cedulaUnica: formData.cedulaUnica.trim(),
-          cedulaTipo:  formData.cedulaTipo,
+          email:         formData.email.trim(),
+          password:      formData.password,
+          nombres:       formData.nombres.trim(),
+          apellidos:     formData.apellidos.trim(),
+          cedulaUnica:   formData.cedulaUnica.trim(),
+          cedulaTipo:    formData.cedulaTipo,
+          acceptedTerms: true,
         }),
       });
       const data = await res.json();
@@ -312,14 +323,14 @@ export default function RegisterPage() {
                   onChange={handleChange}
                   className="block w-full px-4 py-3 bg-slate-950/50 border border-white/10 rounded-xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
                 >
-                  <option value="CC">Cédula de Ciudadanía (CC)</option>
-                  <option value="TI">Tarjeta de Identidad (TI)</option>
-                  <option value="RC">Registro Civil (RC)</option>
-                  <option value="CE">Cédula de Extranjería (CE)</option>
-                  <option value="PA">Pasaporte (PA)</option>
-                  <option value="NIT">NIT</option>
-                  <option value="PEP">Perm. Especial Permanencia (PEP)</option>
-                  <option value="PPT">Perm. Protección Temporal (PPT)</option>
+                  <option value="CC">CC – Cédula Ciudadanía</option>
+                  <option value="TI">TI – Tarjeta Identidad</option>
+                  <option value="RC">RC – Registro Civil</option>
+                  <option value="CE">CE – Cédula Extranjería</option>
+                  <option value="PA">PA – Pasaporte</option>
+                  <option value="NIT">NIT – NIT Empresarial</option>
+                  <option value="PEP">PEP – Perm. Especial</option>
+                  <option value="PPT">PPT – Perm. Protección</option>
                 </select>
               </div>
 
@@ -460,6 +471,39 @@ export default function RegisterPage() {
               <FieldError msg={touched.confirmPassword ? errors.confirmPassword : undefined} />
             </div>
 
+            {/* Autorización de datos personales — Ley 1581/2012 */}
+            <div className="space-y-1">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={acceptTerms}
+                  onChange={e => {
+                    setAcceptTerms(e.target.checked);
+                    if (termsError) setTermsError(validateAcceptTerms(e.target.checked));
+                  }}
+                  className="mt-0.5 w-4 h-4 rounded border-white/20 bg-slate-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900 flex-shrink-0 cursor-pointer"
+                />
+                <span className="text-xs text-slate-400 leading-relaxed group-hover:text-slate-300 transition-colors">
+                  He leído y acepto la{' '}
+                  <Link href="/privacidad" target="_blank" className="text-blue-400 hover:text-blue-300 underline font-medium">
+                    Política de Privacidad y Tratamiento de Datos Personales
+                  </Link>{' '}
+                  y los{' '}
+                  <Link href="/terminos" target="_blank" className="text-blue-400 hover:text-blue-300 underline font-medium">
+                    Términos y Condiciones
+                  </Link>
+                  . Autorizo el tratamiento de mis datos conforme a la Ley 1581 de 2012.
+                  <RequiredMark />
+                </span>
+              </label>
+              {termsError && (
+                <p className="flex items-center gap-1 text-xs text-red-400 pl-7">
+                  <XCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  {termsError}
+                </p>
+              )}
+            </div>
+
             {/* Botón enviar */}
             <button
               type="submit"
@@ -478,6 +522,7 @@ export default function RegisterPage() {
           </Link>
         </p>
       </div>
+      <LegalFooter />
     </div>
   );
 }

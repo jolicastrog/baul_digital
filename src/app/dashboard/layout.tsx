@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { LayoutDashboard, FileText, Settings, ShieldCheck, LogOut, CreditCard, Menu, X } from 'lucide-react';
+import LegalFooter from '@/components/LegalFooter';
 
 const NAV_LINKS = [
   { href: '/dashboard',          icon: LayoutDashboard, label: 'Inicio' },
@@ -156,6 +157,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="p-4 md:p-8 max-w-7xl mx-auto relative z-10 w-full">
             {children}
           </div>
+          <LegalFooter />
         </main>
       </div>
     </div>

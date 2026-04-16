@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Lock, Mail, ShieldCheck, Eye, EyeOff, XCircle } from 'lucide-react';
+import LegalFooter from '@/components/LegalFooter';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -204,6 +205,7 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
+      <LegalFooter />
     </div>
   );
 }
