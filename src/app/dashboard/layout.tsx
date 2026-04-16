@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { LayoutDashboard, FileText, Settings, ShieldCheck, LogOut } from 'lucide-react';
+import { LayoutDashboard, FileText, Settings, ShieldCheck, LogOut, CreditCard } from 'lucide-react';
 
 export default function DashboardLayout({
   children,
@@ -51,11 +51,15 @@ export default function DashboardLayout({
               <LayoutDashboard className="w-5 h-5 mr-3" />
               Inicio
             </Link>
-            <Link href="#" className="flex items-center px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors font-medium">
+            <Link href="/dashboard" className="flex items-center px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors font-medium">
               <FileText className="w-5 h-5 mr-3" />
               Mis Archivos
             </Link>
-            <Link href="#" className="flex items-center px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors font-medium">
+            <Link href="/dashboard/pricing" className="flex items-center px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors font-medium">
+              <CreditCard className="w-5 h-5 mr-3" />
+              Planes
+            </Link>
+            <Link href="/dashboard/settings" className="flex items-center px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors font-medium">
               <Settings className="w-5 h-5 mr-3" />
               Configuración
             </Link>

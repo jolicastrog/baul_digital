@@ -57,6 +57,18 @@ export async function GET(_request: Request) {
     ]);
 
     const profile = profileResult.data;
+
+    // Obtener límite de documentos del plan
+    const planLimitResult = profile
+      ? await supabaseAdmin
+          .from('plan_limits')
+          .select('max_documents')
+          .eq('plan_type', profile.plan_type)
+          .single()
+      : null;
+
+    const maxDocuments: number | null = planLimitResult?.data?.max_documents ?? null;
+
     const quota = profile
       ? {
           total_bytes: profile.storage_quota_bytes,
@@ -66,6 +78,7 @@ export async function GET(_request: Request) {
             ? (profile.storage_used_bytes / profile.storage_quota_bytes) * 100
             : 0,
           plan_type: profile.plan_type,
+          max_documents: maxDocuments,
         }
       : null;
 
@@ -77,6 +90,49 @@ export async function GET(_request: Request) {
     });
   } catch (err: any) {
     console.error('GET /api/documents error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// PATCH — actualizar metadatos de un documento (fecha de caducidad, etc.)
+export async function PATCH(request: Request) {
+  try {
+    const supabase = getAnonSupabase();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
+
+    const { documentId, expiry_date } = await request.json();
+    if (!documentId) {
+      return NextResponse.json({ error: 'Missing documentId' }, { status: 400 });
+    }
+
+    // Verificar que el documento pertenece al usuario
+    const { data: doc } = await supabaseAdmin
+      .from('documents')
+      .select('user_id')
+      .eq('id', documentId)
+      .single();
+
+    if (!doc || doc.user_id !== user.id) {
+      return NextResponse.json({ error: 'Documento no encontrado o acceso denegado' }, { status: 404 });
+    }
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('documents')
+      .update({ expiry_date: expiry_date ?? null })
+      .eq('id', documentId)
+      .select()
+      .single();
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, document: updated });
+  } catch (err: any) {
+    console.error('PATCH /api/documents error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

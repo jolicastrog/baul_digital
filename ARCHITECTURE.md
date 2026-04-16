@@ -1,584 +1,406 @@
-# 📦 Baúl Digital - Arquitectura y Documentación Técnica
+# Baúl Digital — Arquitectura y Documentación Técnica
 
-## 1️⃣ Visión General
+## 1. Visión General
 
-**Baúl Digital** es una Progressive Web Application (PWA) diseñada para que usuarios colombianos organicen, protejan y gestionen documentos críticos con alertas automáticas de vencimiento.
+**Baúl Digital** es una PWA para que usuarios colombianos organicen, protejan y gestionen documentos críticos con alertas automáticas de vencimiento.
 
-### Objetivos Clave
-- ✅ Privacidad garantizada (Ley 1581 - HABEAS DATA)
-- ✅ Acceso offline mediante PWA
-- ✅ Escalabilidad serverless
-- ✅ Anti-fraude robusto
-- ✅ Monetización con planes tiered
+### Principios de diseño
+- Privacidad garantizada (Ley 1581 - HABEAS DATA)
+- Toda operación de BD y Storage ocurre en el servidor (Route Handlers), nunca en el cliente
+- El cliente solo usa el Supabase anon client para verificar sesión; el service role key nunca llega al navegador
+- RLS habilitada en todas las tablas como capa de seguridad adicional
 
 ---
 
-## 2️⃣ Stack Tecnológico Completo
+## 2. Stack Tecnológico
 
 ### Frontend
 ```
-Next.js 14+ (App Router)
+Next.js 14 (App Router)
 ├── React 18
 ├── TypeScript (strict mode)
 ├── Tailwind CSS 3.4
-├── Radix UI / shadcn/ui
-├── Lucide React (iconos)
-└── Zustand (state management)
+└── Lucide React (iconos)
 ```
 
-### Backend & Infraestructura
+### Backend
 ```
-Supabase (BaaS)
-├── PostgreSQL 14+ (RLS habilitado)
-├── Auth (Magic Links + OAuth)
-├── Storage (Signed URLs)
-└── Edge Functions (Node.js)
+Supabase Cloud
+├── PostgreSQL 15 (RLS en todas las tablas)
+├── Auth (email + password, sesión por cookies)
+├── Storage (bucket documents — privado)
+└── Triggers y funciones PLpgSQL
 
-Integración:
-├── Cloudflare R2 (CDN)
-├── Wompi / ePayco (pagos)
-├── SendGrid (email)
-└── FingerprintJS (fraud detection)
+Next.js Route Handlers (API)
+├── Usa @supabase/ssr con cookies()
+├── supabaseAdmin (service role) para operaciones de BD
+└── getAnonSupabase() solo para auth.getUser()
 ```
 
 ### Despliegue
 ```
-Vercel (Frontend + Edge Functions)
-Supabase Cloud (Base de datos + Almacenamiento)
-Cloudflare (CDN + R2)
+Vercel → Frontend + API Routes
+Supabase Cloud → BD + Auth + Storage
 ```
 
 ---
 
-## 3️⃣ Estructura de Carpetas
+## 3. Estructura de Carpetas (real)
 
 ```
-baulDigital/
+baul_digital/
 ├── src/
-│   ├── app/                          # Next.js App Router
-│   │   ├── page.tsx                  # Landing page
-│   │   ├── (auth)/                   # Rutas de autenticación
-│   │   │   ├── login/page.tsx
-│   │   │   ├── register/page.tsx
-│   │   │   └── forgot-password/page.tsx
-│   │   ├── (protected)/               # Rutas protegidas por auth
-│   │   │   ├── dashboard/page.tsx
-│   │   │   ├── documents/page.tsx
-│   │   │   ├── alerts/page.tsx
-│   │   │   ├── settings/page.tsx
-│   │   │   └── profile/[id]/page.tsx
-│   │   ├── admin/                    # Panel administrativo
-│   │   │   ├── page.tsx              # Dashboard admin
-│   │   │   ├── users/page.tsx
-│   │   │   ├── analytics/page.tsx
-│   │   │   └── fraud/page.tsx
-│   │   ├── api/                      # API routes
-│   │   │   ├── webhooks/
-│   │   │   │   ├── wompi/route.ts
-│   │   │   │   └── epayco/route.ts
-│   │   │   ├── documents/
-│   │   │   │   ├── route.ts          # POST upload, GET list, DELETE
-│   │   │   │   └── [id]/route.ts     # GET, PATCH, DELETE individual
-│   │   │   ├── auth/
-│   │   │   │   ├── register/route.ts
-│   │   │   │   └── callback/route.ts
-│   │   │   └── storage/
-│   │   │       └── signed-url/route.ts
-│   │   └── layout.tsx                # Root layout
-│   ├── components/                   # Componentes React reutilizables
-│   │   ├── FileUpload.tsx            # Componente principal de upload
-│   │   ├── DocumentCard.tsx
-│   │   ├── CategoryFilter.tsx
-│   │   ├── AlertsList.tsx
-│   │   ├── Layout/
-│   │   │   ├── Header.tsx
-│   │   │   ├── Sidebar.tsx
-│   │   │   └── Footer.tsx
-│   │   ├── Auth/
-│   │   │   ├── LoginForm.tsx
-│   │   │   ├── RegisterForm.tsx
-│   │   │   └── OTPInput.tsx
-│   │   ├── Premium/
-│   │   │   ├── PricingCard.tsx
-│   │   │   ├── AdBanner.tsx          # Ads solo para Plan FREE
-│   │   │   └── UpgradeModal.tsx
-│   │   ├── Admin/
-│   │   │   ├── UserManagement.tsx
-│   │   │   ├── FraudDashboard.tsx
-│   │   │   └── AnalyticsChart.tsx
-│   │   └── Common/
-│   │       ├── Button.tsx
-│   │       ├── Input.tsx
-│   │       ├── Modal.tsx
-│   │       └── Toast.tsx
-│   ├── types/                        # TypeScript interfaces & enums
-│   │   ├── index.ts                  # Tipos principales
-│   │   └── database.ts               # Tipos generados de Supabase
-│   ├── lib/                          # Utilidades & clientes
-│   │   ├── supabase.ts               # Cliente Supabase singleton
-│   │   └── utils/
-│   │       └── cn.ts                 # classname merger
-│   ├── services/                     # Lógica de negocio
-│   │   ├── documentService.ts        # Operaciones de documentos
-│   │   ├── paymentService.ts         # Manejo de pagos
-│   │   ├── fraudDetectionService.ts  # Validación anti-fraude
-│   │   └── alertService.ts           # Sistema de alertas
-│   ├── hooks/                        # React hooks personalizados
-│   │   ├── useAuth.ts
-│   │   ├── useDocuments.ts
-│   │   └── useStorageQuota.ts
-│   ├── store/                        # Zustand stores (state management)
-│   │   ├── authStore.ts
-│   │   └── uiStore.ts
-│   ├── utils/                        # Funciones utilitarias
-│   │   ├── fileValidation.ts         # Validación, compresión, fingerprint
-│   │   ├── dateFormatting.ts
-│   │   └── encryption.ts
-│   └── middleware/                   # Middlewares de Next.js
-│       ├── auth.ts                   # Protección de rutas
-│       └── rateLimit.ts              # Rate limiting
+│   ├── app/
+│   │   ├── page.tsx                        # Landing / redirect a login
+│   │   ├── layout.tsx                      # Root layout
+│   │   ├── (auth)/
+│   │   │   ├── login/page.tsx              # Formulario de login
+│   │   │   └── register/page.tsx           # Formulario de registro
+│   │   ├── dashboard/
+│   │   │   ├── layout.tsx                  # Sidebar + nav (client component)
+│   │   │   ├── page.tsx                    # Bóveda principal
+│   │   │   ├── settings/page.tsx           # Perfil y seguridad
+│   │   │   └── pricing/page.tsx            # Planes y precios
+│   │   └── api/
+│   │       ├── auth/
+│   │       │   ├── login/route.ts          # POST — iniciar sesión
+│   │       │   ├── register/route.ts       # POST — registrar usuario
+│   │       │   ├── logout/route.ts         # POST — cerrar sesión
+│   │       │   └── me/route.ts             # GET — usuario y perfil autenticado
+│   │       ├── documents/route.ts          # GET (lista), PATCH (editar), DELETE
+│   │       ├── upload/route.ts             # POST — subir documento a Storage
+│   │       ├── profile/route.ts            # GET, PATCH (datos), POST (contraseña)
+│   │       └── webhooks/
+│   │           ├── wompi/route.ts          # Webhook de pagos Wompi
+│   │           └── epayco/route.ts         # Webhook de pagos ePayco
+│   ├── components/
+│   │   └── FileUpload.tsx                  # Drag & drop, progreso, cuota
+│   ├── services/
+│   │   ├── documentService.ts              # uploadDocument, getDownloadUrl, deleteDocument
+│   │   ├── paymentService.ts               # Validación HMAC webhooks
+│   │   └── fraudDetectionService.ts        # Validación cédula, IP, fingerprint
+│   ├── middleware/
+│   │   └── auth.ts                         # updateSession() — protege rutas con cookies
+│   ├── middleware.ts                        # Punto de entrada del middleware
+│   ├── lib/
+│   │   ├── supabase.ts                     # createBrowserClient (solo para auth en cliente)
+│   │   └── utils/cn.ts
+│   ├── types/
+│   │   ├── index.ts                        # Enums y interfaces principales
+│   │   └── database.ts                     # Tipos de tablas Supabase
+│   └── utils/
+│       └── fileValidation.ts               # validateFile, processFile, formatBytes
 ├── supabase/
-│   ├── migrations/
-│   │   ├── 001_init_schema.sql       # Tablas, RLS, triggers, funciones PLpgSQL
-│   │   ├── 002_storage_buckets.sql   # Buckets de Storage + RLS de storage
-│   │   └── 003_document_limit.sql    # Tabla plan_limits + trigger de límite de docs
-│   ├── functions/
-│   │   └── send-alert-notifications/ # Edge Function para alertas de vencimiento
-│   └── seed.sql                      # Datos de prueba
-├── public/
-│   ├── manifest.json                 # Manifiesto PWA
-│   ├── service-worker.js             # Service Worker para offline
-│   └── icons/                        # Iconos PWA
-├── tests/                            # Suite de pruebas
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/
-├── .env.example                      # Variables de entorno
+│   └── migrations/
+│       ├── 001_init_schema.sql             # Tablas, RLS, RPCs, triggers base
+│       ├── 002_storage_buckets.sql         # Buckets documents + avatars + RLS storage
+│       ├── 003_document_limit.sql          # plan_limits + trigger check_document_limit
+│       ├── 004_auth_trigger.sql            # handle_new_user en auth.users
+│       ├── 005_default_categories.sql      # create_default_categories()
+│       ├── 006_fix_auth_trigger.sql        # handle_new_user con EXCEPTION handler
+│       └── 007_update_free_limit.sql       # Free: 10 → 15 documentos
+├── .env.local                              # Variables de entorno (no subir a git)
+├── .env.example                            # Plantilla de variables
 ├── package.json
 ├── tsconfig.json
-├── next.config.js                    # Config con PWA support
-├── tailwind.config.js                # Customización Tailwind
-└── README.md
+├── next.config.js
+└── tailwind.config.js
 ```
 
 ---
 
-## 4️⃣ Flujos Principales
+## 4. Flujos Principales
 
-### A. Registro (Anti-Fraude)
+### A. Registro
 ```
-Usuario llena formulario
+Usuario llena formulario (nombre, email, cédula, tipo, contraseña)
          ↓
-Valida cédula (formato)
+POST /api/auth/register
          ↓
-Verifica no exista en BD (UNIQUE constraint)
+supabase.auth.signUp() con options.data = { full_name, cedula_unica, cedula_tipo }
          ↓
-Genera fingerprint del navegador
+Trigger handle_new_user() en auth.users:
+   INSERT en profiles (con COALESCE para valores vacíos)
+   CALL create_default_categories(user_id)
+   → crea 6 categorías: Identidad, Salud, Educación, Financiero, Propiedad, Otros
          ↓
-Verifica IP (max 3 registros/hora)
-         ↓
-Verifica fingerprint (max 2 registros/hora)
-         ↓
-Si fraud → BLOQUEA y registra en fraud_detection
-         ↓
-Si OK → Crea profile + auth.users
-         ↓
-Envía email de confirmación (SendGrid)
+Redirect a /dashboard
 ```
 
-### B. Carga de Documento
+### B. Login / Sesión
 ```
-Usuario selecciona archivo
+POST /api/auth/login
          ↓
-Valida: tipo, tamaño (2MB max)
+createServerClient con cookies() de next/headers
          ↓
-Comprime si es imagen > 300KB
+supabase.auth.signInWithPassword()
          ↓
-Verifica cuota de almacenamiento (check_storage_quota RPC)
+Supabase setea cookies de sesión en el response
          ↓
-Sube a Supabase Storage
-  bucket: documents / path: {user_id}/{categoria}/{uuid}.ext
-         ↓
-INSERT en tabla documents
-  → Trigger trg_check_document_limit:
-      si plan = free y docs activos >= 10 → ERROR P0001
-         ↓
-Trigger trg_create_alert_on_document_insert:
-  si expiry_date → INSERT en alerts (automático)
-         ↓
-Actualiza storage_used_bytes (update_storage_used RPC)
-         ↓
-Genera Signed URL (15 min validez)
-         ↓
-Muestra confirmación al usuario
+Middleware (src/middleware.ts) lee cookies en cada request
+   → llama updateSession() que refresca el token si expira
+   → redirige a /login si no hay sesión en rutas protegidas
 ```
 
-### C. Pago (Wompi)
+### C. Carga de Documento
 ```
-Usuario elige plan upgr
+Usuario selecciona archivo (drag & drop o clic)
          ↓
-Redirige a página de pago Wompi
+FileUpload.tsx → processFile() comprime si es imagen > 300KB
          ↓
-Paga y Wompi envía webhook
+POST /api/upload (FormData: file, categoryId, expiryDate)
          ↓
-API route /webhooks/wompi/ recibe evento
+getAnonSupabase().auth.getUser() → verifica sesión
          ↓
-Valida firma con HMAC-SHA256
+supabaseAdmin.from('profiles').select() → verifica cuota disponible
          ↓
-Busca usuario por email
+supabaseAdmin.from('categories').select() → obtiene nombre para el path
          ↓
-Si aprobado: actualiza plan_type y storage_quota
+Normaliza nombre de categoría (quita tildes y caracteres especiales)
+   Ej: "Educación" → "educacion"
          ↓
-Crea/actualiza registro en subscriptions
+storagePath = {user_id}/{categoria_normalizada}/{uuid}.{ext}
          ↓
-Registra en audit_logs
+supabaseAdmin.storage.upload() → sube a bucket 'documents'
          ↓
-Usuario recibe email de confirmación
-```
-
-### D. Alertas de Vencimiento (Cron)
-```
-Cada día a las 09:00 AM (via Supabase Cron)
+supabaseAdmin.from('documents').insert()
+   → Trigger trg_check_document_limit verifica límite del plan
+   → Si plan free y docs activos >= 15: lanza excepción P0001
          ↓
-Edge Function query alertas no enviadas
+supabaseAdmin.rpc('update_storage_used') → incrementa storage_used_bytes
          ↓
-Para cada alerta:
-   - Calcula días para vencimiento
-   - Si <= alert_days_before
-      - Envía email (SendGrid)
-      - Envía notificación push
-      - Marca alert_sent = true
+supabaseAdmin.storage.createSignedUrl() → URL temporal 15 min
          ↓
-Registra ejecución del cron
+supabaseAdmin.from('audit_logs').insert() → registra DOCUMENT_UPLOADED
+         ↓
+Respuesta: { success, document, signedUrl }
 ```
 
----
+### D. Sistema de Alertas (en pantalla)
+```
+Al cargar /dashboard:
+   GET /api/documents → retorna lista de documentos con expiry_date
+         ↓
+Dashboard clasifica documentos por urgencia:
+   🔴 expired[]   → expiry_date < hoy
+   🟠 urgent[]    → expiry_date <= hoy + 8 días
+   🟡 upcoming[]  → expiry_date <= hoy + 30 días
+         ↓
+Si hay alguna alerta → muestra panel colapsable con:
+   - Encabezado con contador total (clic para desplegar/replegar)
+   - Lista scrollable (máx 176px) con nombre + fecha por documento
+   - Leyenda con totales por categoría
+         ↓
+Badge en tarjeta "Alertas Activas" del dashboard
+```
 
-## 5️⃣ Seguridad (RLS)
+> **Nota**: Las alertas por email y SMS están planificadas para Fase 2.
+> No se requiere ningún servicio externo para el sistema actual.
 
-### Principios
-- **Usuarios solo ven sus datos**: RLS en todas las tablas
-- **Cédula única**: UNIQUE constraint previene duplicados
-- **Archivos privados**: El admin NUNCA ve archivos físicos (solo metadatos)
-- **Signed URLs**: Acceso temporal a storage (15 min)
-
-### Políticas RLS
-```sql
--- PROFILES
-- SELECT: auth.uid() = id (usuario ve su perfil)
-- SELECT: plan_type = 'enterprise' (admin lee perfiles)
-
--- DOCUMENTS
-- SELECT: auth.uid() = user_id
-- INSERT/UPDATE/DELETE: auth.uid() = user_id
-
--- ALERTS
-- SELECT: auth.uid() = user_id
-- UPDATE: auth.uid() = user_id
-
--- FRAUD_DETECTION (admin only)
-- SELECT: plan_type = 'enterprise'
+### E. Edición de Fecha de Caducidad
+```
+Clic en ícono lápiz junto a un documento
+         ↓
+Aparece input date inline + botones ✓ / ✗
+         ↓
+PATCH /api/documents → { documentId, expiry_date }
+         ↓
+supabaseAdmin verifica user_id === doc.user_id
+         ↓
+UPDATE documents SET expiry_date = ?
+         ↓
+fetchDashboardData() refresca la lista y las alertas
 ```
 
 ---
 
-## 6️⃣ Planes y Cuotas
+## 5. Patrón de Autenticación en Route Handlers
 
-| Plan | Documentos | Storage | Max Archivo | Precio | Características |
-|------|-----------|---------|-------------|--------|-----------------|
-| **Free** | 10 | 20MB | 2MB | $0 | • 5 categorías • Alertas básicas • Anuncios |
-| **Premium** | 500 | 500MB | 10MB | $19.900/mes | • Descargas batch • Sin ads |
-| **Enterprise** | Ilimitado | 5GB | 50MB | $79.900/mes | • Todo Premium • API + Admin Panel • Soporte 24/7 |
+Todos los Route Handlers siguen este patrón:
 
-> Los límites se gestionan en la tabla `plan_limits` (BD). Archivar un documento libera un slot del límite de documentos activos.
-
----
-
-## 7️⃣ Componentes Clave
-
-### FileUpload.tsx
 ```typescript
-// Props
-- userId: string                    // ID del usuario autenticado
-- categoryId?: string               // Categoría destino
-- onSuccess?: (doc) => void         // Callback de éxito
-- onError?: (error: string) => void // Callback de error
+// 1. Cliente anon — SOLO para verificar sesión (lee cookies)
+function getAnonSupabase() {
+  const cookieStore = cookies();
+  return createServerClient(URL, ANON_KEY, {
+    cookies: {
+      getAll() { return cookieStore.getAll(); },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) =>
+          cookieStore.set(name, value, options));
+      },
+    },
+  });
+}
 
-// Características
-✓ Drag & drop
-✓ Compresión en cliente (browser-image-compression)
-✓ Validación de archivo
-✓ Verificación de cuota
-✓ Barra de progreso
-✓ Manejo de errores
-```
+// 2. Cliente admin — para TODAS las operaciones de BD y Storage
+const supabaseAdmin = createClient(URL, SERVICE_ROLE_KEY);
 
-### Otras Componentes Críticos
-- **CategoryFilter.tsx**: Pills para filtrar documentos
-- **AdBanner.tsx**: Publicidad contextual (solo Plan Free)
-- **PricingCard.tsx**: Tarjeta de planes
-- **FraudDashboard.tsx**: Panel de detección de fraude
+export async function POST(request: Request) {
+  // Verificar sesión
+  const { data: { user } } = await getAnonSupabase().auth.getUser();
+  if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
----
-
-## 8️⃣ Guías de UI/UX
-
-### Filosofía de Diseño
-- **Mobile-First**: Responsive desde 320px
-- **Grandes botones**: Min 44px (accesibilidad)
-- **Colores corporativos**:
-  - **Azul Confianza**: `#1e40af` (primary)
-  - **Verde Esmeralda**: `#10b981` (accent)
-  - **Gris Slate**: `#f8fafc` a `#1e293b` (neutrals)
-
-### Paleta Tailwind
-```javascript
-// tailwind.config.js
-colors: {
-  'primary-blue': '#1e40af',
-  'primary-blue-dark': '#1e3a8a',
-  'emerald-accent': '#10b981',
-  'emerald-dark': '#059669',
+  // Operar en BD con admin (bypasea RLS)
+  const { data } = await supabaseAdmin.from('tabla').select('*').eq('user_id', user.id);
+  // ...
 }
 ```
 
-### Patrones de UI
-
-#### 1. Sistema de Pills (Categorías)
-```tsx
-<div className="flex flex-wrap gap-2">
-  {categories.map(cat => (
-    <button
-      key={cat.id}
-      onClick={() => filterByCategory(cat.id)}
-      className={cn(
-        'px-4 py-2 rounded-full text-sm font-medium transition',
-        active === cat.id
-          ? 'bg-primary-blue text-white'
-          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-      )}
-      style={{ backgroundColor: active === cat.id ? cat.color_code : undefined }}
-    >
-      {cat.name}
-    </button>
-  ))}
-</div>
-```
-
-#### 2. Card de Documento
-```tsx
-<div className="rounded-xl border border-slate-200 hover:shadow-lg p-4 transition">
-  <div className="flex items-start justify-between">
-    <div className="flex-1">
-      <h3 className="font-semibold text-slate-900">{doc.file_name}</h3>
-      <p className="text-sm text-slate-500">{formatBytes(doc.file_size)}</p>
-      {doc.expiry_date && (
-        <p className={cn(
-          'text-xs font-medium mt-2',
-          daysUntilExpiry < 30 ? 'text-red-600' : 'text-slate-600'
-        )}>
-          Vence en {daysUntilExpiry} días
-        </p>
-      )}
-    </div>
-    <Menu items={actions} />
-  </div>
-</div>
-```
-
-#### 3. Modal de Alerta
-```tsx
-<Dialog open={isOpen} onOpenChange={setIsOpen}>
-  <DialogContent className="max-w-md rounded-2xl">
-    <AlertCircle className="h-8 w-8 text-yellow-500" />
-    <DialogTitle>Documento próximo a vencer</DialogTitle>
-    <DialogDescription>
-      Tu {document.file_name} vence en 5 días
-    </DialogDescription>
-    <DialogFooter>
-      <Button variant="outline">Descartar</Button>
-      <Button onClick={handleRenew}>Renovar ahora</Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
-```
-
-### Estados Visuales
-
-#### Loading
-```tsx
-<div className="flex items-center space-x-2">
-  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-blue border-t-transparent" />
-  <span className="text-sm text-slate-600">Cargando...</span>
-</div>
-```
-
-#### Error
-```tsx
-<div className="rounded-lg bg-red-50 border border-red-200 p-4 flex items-start space-x-3">
-  <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
-  <div>
-    <p className="font-medium text-red-900">Error</p>
-    <p className="text-sm text-red-700">{error}</p>
-  </div>
-</div>
-```
-
-#### Success
-```tsx
-<div className="rounded-lg bg-green-50 border border-green-200 p-4 flex items-start space-x-3">
-  <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-  <div>
-    <p className="font-medium text-green-900">¡Éxito!</p>
-    <p className="text-sm text-green-700">{message}</p>
-  </div>
-</div>
-```
-
-### Layout Principal
-```
-┌─────────────────────────────────────┐
-│            Header                   │
-│  Logo | Search | Profile | Settings │
-├──────────────┬──────────────────────┤
-│              │                      │
-│   Sidebar    │     Content Area     │
-│              │                      │
-│  • Dashboard │   Documentos listar  │
-│  • Documents │   Filtros (Pills)    │
-│  • Alerts    │   Documento Cards    │
-│  • Settings  │                      │
-│              │                      │
-└──────────────┴──────────────────────┘
-```
+**¿Por qué este patrón?**
+El cliente anon respeta las cookies de sesión del servidor y puede verificar `auth.getUser()`. Sin embargo, usar el cliente anon para consultas de BD puede verse afectado por RLS si `auth.uid()` no se propaga correctamente en el contexto de la función. El service role key bypasea RLS completamente, garantizando que las consultas funcionan. La seguridad se mantiene porque verificamos `user_id === user.id` manualmente en cada operación.
 
 ---
 
-## 9️⃣ Setup & Instalación
+## 6. Base de Datos
 
-### 1. Clonar y Dependencias
-```bash
-git clone <repo>
-cd baulDigital
-npm install
-```
+### Tablas principales
 
-### 2. Configurar Variables de Entorno
-```bash
-cp .env.example .env.local
-# Editar .env.local con:
-# - NEXT_PUBLIC_SUPABASE_URL
-# - NEXT_PUBLIC_SUPABASE_ANON_KEY
-# - SUPABASE_SERVICE_ROLE_KEY
-# - WOMPI_WEBHOOK_SECRET
-# - EPAYCO_WEBHOOK_SECRET
-# - etc.
-```
+| Tabla | Descripción |
+|-------|-------------|
+| `profiles` | Extiende `auth.users`. Almacena cédula, plan, cuota, teléfono |
+| `documents` | Metadatos de documentos (no el archivo físico) |
+| `categories` | Categorías por usuario (6 por defecto) |
+| `plan_limits` | Límites de documentos y storage por plan |
+| `audit_logs` | Registro de todas las acciones del sistema |
+| `subscriptions` | Historial de suscripciones y pagos |
 
-### 3. Migrar Base de Datos
-```bash
-npx supabase link --project-ref <tu-project-ref>  # Primera vez
-npx supabase db push                               # Aplica migraciones en Supabase Cloud
-```
+### Funciones PLpgSQL
 
-**Migraciones incluidas:**
-- `001_init_schema.sql` — Tablas, RLS, triggers y funciones
-- `002_storage_buckets.sql` — Buckets `documents` (privado) y `avatars` (público)
-- `003_document_limit.sql` — Límites de documentos por plan (`plan_limits`)
-
-### 4. Ejecutar en Desarrollo
-```bash
-npm run dev
-# Accede a http://localhost:3000
-```
-
-### 5. Build para Producción
-```bash
-npm run build
-npm start
-```
-
----
-
-## 🔟 Testing
-
-### Unit Tests (Jest)
-```bash
-npm run test
-```
-
-### Integration Tests (Supabase)
-```bash
-npm run test:integration
-```
-
-### E2E Tests (Playwright)
-```bash
-npm run test:e2e
-```
-
----
-
-## 1️⃣1️⃣ Monitoreo & Logs
-
-### Auditoría
-Todos los eventos se registran en `audit_logs`:
-- DOCUMENT_UPLOADED
-- DOCUMENT_DOWNLOADED
-- DOCUMENT_DELETED
-- PAYMENT_APPROVED
-- PAYMENT_FAILED
-- FRAUD_FLAGGED
-
-### Errores
-Se reportan automáticamente a:
-1. Console (dev)
-2. Sentry (producción)
-3. audit_logs (BD)
-
----
-
-## 1️⃣2️⃣ Deployment en Vercel
-
-```bash
-# Conectar repositorio a Vercel
-# Configurar variables de entorno en Vercel Dashboard
-# Deploy automático en push a main
-
-# Comandos útiles
-vercel env pull     # Descargar vars de Vercel
-vercel deploy       # Deployar manualmente
-```
-
----
-
-## 📚 Referencias Útiles
-
-- [Documentación Supabase](https://supabase.com/docs)
-- [Next.js App Router](https://nextjs.org/docs/app)
-- [Tailwind CSS](https://tailwindcss.com)
-- [Radix UI](https://www.radix-ui.com)
-- [Ley 1581 (HABEAS DATA)](https://www.superfinanciera.gov.co)
-
----
-
-## 1️⃣3️⃣ Notas Técnicas
-
-### UUID
-Se usa `gen_random_uuid()` (nativo PostgreSQL 13+) en lugar de `uuid_generate_v4()`.
-La extensión `uuid-ossp` no expone sus funciones en el `search_path` por defecto en Supabase Cloud.
+| Función | Propósito |
+|---------|-----------|
+| `handle_new_user()` | Trigger en `auth.users` — crea perfil y categorías al registrarse |
+| `create_default_categories(user_id)` | Inserta las 6 categorías por defecto |
+| `check_document_limit()` | Trigger BEFORE INSERT — bloquea si se supera el límite del plan |
+| `update_storage_used(user_id, bytes)` | Incrementa `storage_used_bytes` en el perfil |
+| `free_storage(user_id, bytes)` | Decrementa `storage_used_bytes` al eliminar |
 
 ### Storage
-- Bucket `documents`: privado, máx 50MB por archivo, tipos: PDF, imágenes, Word, Excel
-- Bucket `avatars`: público, máx 2MB por archivo, tipos: imágenes
-- RLS de storage basado en path: `{user_id}/{categoria}/{archivo}`
 
-### Límite de Documentos
-Implementado via trigger `trg_check_document_limit` (`BEFORE INSERT` en `documents`).
-Solo cuenta documentos con `is_archived = FALSE`. Archivar libera un slot.
-Los límites están en la tabla `plan_limits` y son ajustables sin cambiar código.
+| Bucket | Tipo | Límite por archivo | Tipos permitidos |
+|--------|------|--------------------|------------------|
+| `documents` | Privado | 50 MB | PDF, JPG, PNG, WEBP, DOC, DOCX, XLS, XLSX |
+| `avatars` | Público | 2 MB | JPG, PNG, WEBP |
+
+**Path de archivos**: `{user_id}/{categoria_normalizada}/{uuid}.{ext}`
+- La categoría se normaliza: sin tildes, sin espacios, lowercase
+- Ejemplo: `abc123/educacion/74383826-...pdf`
+
+---
+
+## 7. Planes y Precios
+
+| Plan | Documentos | Storage | Mensual | Semestral (-15%) | Anual (-25%) |
+|------|-----------|---------|---------|-----------------|--------------|
+| **Gratuito** | 15 | 20 MB | $0 | $0 | $0 |
+| **Premium** | 500 | 500 MB | $9.900 COP | $8.415 COP/mes | $7.425 COP/mes |
+| **Empresarial** | Hasta agotar almacenamiento | 5 GB | $49.900 COP | $42.415 COP/mes | $37.425 COP/mes |
+
+Los límites se controlan en la tabla `plan_limits`. Se puede ajustar sin tocar el código:
+```sql
+UPDATE plan_limits SET max_documents = 20 WHERE plan_type = 'free';
+```
+
+---
+
+## 8. Seguridad
+
+### Ley 1581 - HABEAS DATA
+- `cedula_unica` con constraint UNIQUE — previene duplicados
+- RLS en todas las tablas — usuarios solo ven sus propios datos
+- El administrador nunca puede acceder a archivos físicos (solo metadatos)
+- Signed URLs con expiración de 15 minutos para acceso a Storage
+- Auditoría completa en `audit_logs`
+
+### RLS activa en
+- `profiles` — SELECT/UPDATE solo propietario
+- `documents` — SELECT/INSERT/UPDATE/DELETE solo propietario
+- `categories` — SELECT/INSERT/UPDATE/DELETE solo propietario
+- `plan_limits` — SELECT público (no hay datos sensibles)
+
+### Service Role Key
+Solo se usa en el servidor (Route Handlers). Nunca se expone al cliente. Bypasea RLS con intención, pero siempre se valida `user_id === user.id` antes de operar.
+
+---
+
+## 9. Páginas del Dashboard
+
+### `/dashboard` — Bóveda principal
+- Tarjetas: Almacenamiento (MB usados/total + barra), Documentos (X/15 + barra), Alertas activas
+- Panel de alertas colapsable: vencidos 🔴, urgentes 🟠, próximos 🟡
+- Búsqueda por nombre de archivo
+- Filtros por categoría (pills)
+- Lista de documentos con fecha de subida, tamaño, badge de vencimiento
+- Edición inline de fecha de caducidad (lápiz → date picker → ✓/✗)
+- Botones Abrir (signed URL) y Eliminar por documento
+
+### `/dashboard/settings` — Configuración
+- Avatar con inicial, email y plan actual
+- Barra de almacenamiento
+- Formulario: nombre, email (readonly), tipo cédula, número cédula, teléfono
+- Formulario de cambio de contraseña con confirmación
+- Enlace a página de planes
+
+### `/dashboard/pricing` — Planes y precios
+- Toggle mensual / semestral (-15%) / anual (-25%)
+- 3 tarjetas de plan con precio dinámico y ahorro calculado
+- Badge "Más popular" en Premium
+- Tabla comparativa de características
+- FAQ colapsable (5 preguntas)
+
+---
+
+## 10. Migraciones
+
+Ejecutar en orden con `npx supabase db push` o manualmente en el SQL Editor:
+
+| Archivo | Contenido |
+|---------|-----------|
+| `001_init_schema.sql` | Tablas base, RLS, RPCs (update_storage_used, free_storage, check_storage_quota) |
+| `002_storage_buckets.sql` | Buckets documents y avatars, políticas RLS de storage |
+| `003_document_limit.sql` | Tabla plan_limits, trigger trg_check_document_limit |
+| `004_auth_trigger.sql` | Trigger handle_new_user en auth.users |
+| `005_default_categories.sql` | Función create_default_categories, actualiza trigger |
+| `006_fix_auth_trigger.sql` | handle_new_user con EXCEPTION WHEN OTHERS y COALESCE para cedula_unica |
+| `007_update_free_limit.sql` | Sube límite free de 10 a 15 documentos |
+
+---
+
+## 11. Variables de Entorno
+
+| Variable | Uso | Visible en cliente |
+|----------|-----|--------------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto | Sí |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave pública | Sí |
+| `SUPABASE_SERVICE_ROLE_KEY` | Admin — solo servidor | No |
+| `NEXT_PUBLIC_APP_ENV` | `production` / `development` | Sí |
+| `NEXT_PUBLIC_STORAGE_TYPE` | `supabase` | Sí |
+
+---
+
+## 12. Notas Técnicas
+
+### UUID
+Se usa `gen_random_uuid()` (nativo PostgreSQL 13+) en lugar de `uuid_generate_v4()`. La extensión `uuid-ossp` no expone sus funciones en el `search_path` por defecto en Supabase Cloud.
+
+### Nombres de archivo en Storage
+Los nombres de categoría se normalizan antes de usarlos en el path:
+```typescript
+const safeCategoryName = categoryName
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')  // quita tildes
+  .replace(/[^a-zA-Z0-9_-]/g, '_') // reemplaza especiales por _
+  .toLowerCase();
+```
+
+### cookies() en Next.js 14
+Se usa de forma síncrona `cookies()` (sin `await`). La versión async es para Next.js 15+.
+
+### Middleware Edge Runtime
+El archivo `src/middleware.ts` corre en Edge Runtime. No puede usar `cookies()` de `next/headers`. Solo puede leer `request.cookies` y escribir en `supabaseResponse.cookies`.
 
 ---
 
 **Última actualización**: Abril 2026
-**Versión**: 1.0.0 (MVP)
+**Versión**: 1.1.0 (MVP en producción)
+**Autor**: José Lizardo — jlizardocastro@gmail.com

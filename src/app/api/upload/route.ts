@@ -85,9 +85,15 @@ export async function POST(request: Request) {
     }
 
     // 3. Generar ruta: {userId}/{categoria}/{uuid}.ext
+    // Normalizar categoría: quitar tildes y caracteres especiales
+    const safeCategoryName = categoryName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')   // quita tildes
+      .replace(/[^a-zA-Z0-9_-]/g, '_')  // reemplaza todo lo demás por _
+      .toLowerCase();
     const ext = file.name.split('.').pop() || '';
     const uuid = crypto.randomUUID();
-    const storagePath = `${user.id}/${categoryName}/${uuid}.${ext}`;
+    const storagePath = `${user.id}/${safeCategoryName}/${uuid}.${ext}`;
 
     // 4. Subir archivo a Supabase Storage
     const fileBuffer = await file.arrayBuffer();

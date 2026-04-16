@@ -164,22 +164,62 @@ Todos los patrones están documentados en ARCHITECTURE.md con código ejemplar.
 
 ---
 
-## 🔧 Características por Implementar (Fase 2)
+## ✅ Implementado (MVP actual)
 
-### Autenticación & Páginas (NO IMPLEMENTADO - MVP)
-- [ ] Sistema de login (Magic Links)
-- [ ] Dashboard principal
-- [ ] Página de documentos
-- [ ] Configuración de alertas
-- [ ] Panel de suscripción
-- [ ] Admin dashboard
+### Autenticación
+- [x] Registro con cédula, tipo, nombre y contraseña
+- [x] Login / Logout con sesión por cookies (Supabase SSR)
+- [x] Middleware de protección de rutas
+- [x] Perfil auto-creado por trigger en `auth.users`
+- [x] Categorías por defecto al registrarse (6 categorías)
 
-### Mejoras (Futuro)
+### Dashboard
+- [x] Vista de documentos con búsqueda y filtros por categoría
+- [x] Tarjetas: almacenamiento usado, contador de documentos (X/15), alertas activas
+- [x] Subida de archivos a Supabase Storage con cuota por plan
+- [x] Eliminación de documentos (storage + BD + liberación de cuota)
+- [x] Edición de fecha de caducidad inline (lápiz en cada documento)
+- [x] Abrir documentos con URL firmada (15 min expiración)
+
+### Sistema de alertas (en pantalla, sin costo)
+- [x] Panel colapsable en el dashboard con scroll
+- [x] 🔴 Vencidos — documento ya pasó la fecha
+- [x] 🟠 Urgentes — vencen en ≤ 8 días
+- [x] 🟡 Próximos — vencen en ≤ 30 días
+- [x] Muestra nombre del documento y fecha de vencimiento
+- [x] Se oculta automáticamente si no hay alertas
+- [ ] Alertas por email (Fase 2 — requiere Resend)
+- [ ] Alertas por SMS (Fase 3 — requiere Twilio, costo alto)
+
+### Planes y precios
+- [x] Página de planes con comparativa y FAQ
+- [x] Plan Gratuito: 15 docs, 20 MB
+- [x] Plan Premium: 500 docs, 500 MB — $9.900 COP/mes (integración de pago pendiente)
+- [x] Plan Empresarial: ilimitado, 5 GB — $49.900 COP/mes (integración de pago pendiente)
+- [x] Límite de documentos por plan controlado por trigger en BD
+- [ ] Integración Wompi/ePayco para cobros (Fase 2)
+
+### Configuración de perfil
+- [x] Editar nombre completo, cédula (tipo + número), teléfono
+- [x] Cambio de contraseña
+- [x] Vista de almacenamiento y plan actual
+
+---
+
+## 🔧 Pendiente (Fase 2)
+
+### Pagos
+- [ ] Integración Wompi o ePayco
+- [ ] Webhook para cambio de plan automático al pagar
+- [ ] Historial de pagos
+
+### Mejoras futuras
 - [ ] App nativa (React Native)
-- [ ] OCR para escaneo
-- [ ] Compartición de documentos
-- [ ] IA para clasificación
-- [ ] Integración Google Drive/OneDrive
+- [ ] OCR para escaneo de documentos físicos
+- [ ] Compartición de documentos con familia
+- [ ] IA para clasificación automática
+- [ ] Integración Google Drive / OneDrive
+- [ ] Admin dashboard para el operador
 
 ---
 

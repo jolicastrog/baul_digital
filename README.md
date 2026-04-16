@@ -1,176 +1,122 @@
-# Baúl Digital 📁
+# Baúl Digital
 
-Una aplicación web progresiva (PWA) para el almacenamiento y gestión digital de documentos personales en Ecuador. Diseñada para simplificar la organización de documentos importantes como cédulas, certificados, contratos y más.
-
-## 🚀 Características Principales
-
-- **📱 PWA (Progressive Web App)**: Funciona como aplicación nativa en móviles y desktop
-- **🔐 Autenticación Segura**: Sistema de login basado en cédula ecuatoriana
-- **📂 Gestión de Documentos**: Subida, organización y búsqueda de documentos
-- **💾 Cuotas de Almacenamiento**: Control de espacio usado por usuario
-- **📊 Dashboard Interactivo**: Visualización clara del estado de documentos
-- **🔔 Alertas Inteligentes**: Notificaciones sobre documentos próximos a vencer
-- **☁️ Sincronización**: Datos seguros en la nube con respaldo local
-
-## 🛠️ Tecnologías
-
-- **Frontend**: Next.js 14, React 18, TypeScript
-- **UI/UX**: Tailwind CSS, Radix UI, Lucide Icons
-- **Base de Datos**: PostgreSQL (local) / Supabase (producción)
-- **Autenticación**: Supabase Auth
-- **Almacenamiento**: Supabase Storage
-- **PWA**: Next-PWA
-- **Estado**: Zustand
-- **Validación**: Zod
-
-## 📋 Prerrequisitos
-
-- Node.js 18+ ([Descargar](https://nodejs.org))
-- Docker y Docker Compose ([Descargar](https://www.docker.com))
-- Git ([Descargar](https://git-scm.com))
-
-## 🚀 Inicio Rápido - Desarrollo Local
-
-### Opción 1: Setup Automático (Recomendado)
-
-```bash
-# Clonar el repositorio
-git clone <url-del-repositorio>
-cd baul-digital
-
-# Ejecutar setup automático
-npm run setup
-```
-
-### Opción 2: Setup Manual
-
-```bash
-# 1. Instalar dependencias
-npm install
-
-# 2. Configurar variables de entorno
-cp .env.local.example .env.local
-
-# 3. Iniciar servicios Docker (PostgreSQL + PgAdmin)
-npm run docker:up
-
-# 4. Esperar que PostgreSQL esté listo (~10 segundos)
-# 5. Ejecutar migraciones y seeders
-npm run db:fresh
-
-# 6. Probar conexión
-npm run db:test
-
-# 7. Iniciar aplicación
-npm run dev
-```
-
-## 📊 Servicios de Desarrollo Local
-
-Después del setup, tendrás acceso a:
-
-- **Aplicación**: http://localhost:3000
-- **PostgreSQL**: localhost:5432
-- **PgAdmin**: http://localhost:8080
-  - Usuario: `admin@bauldigital.local`
-  - Password: `admin123`
-
-## 📝 Usuario de Prueba
-
-- **Email**: test@bauldigital.local
-- **Cédula**: 1234567890
-
-## 🛠️ Scripts Disponibles
-
-```bash
-# Desarrollo
-npm run dev              # Iniciar servidor de desarrollo
-npm run build            # Construir para producción
-npm run start            # Iniciar servidor de producción
-npm run lint             # Ejecutar linter
-npm run type-check       # Verificar tipos TypeScript
-
-# Base de datos (local)
-npm run db:migrate       # Ejecutar migraciones pendientes
-npm run db:reset         # Resetear base de datos
-npm run db:seed          # Ejecutar seeders
-npm run db:fresh         # Reset + migrar + seed
-npm run db:test          # Probar conexión
-
-# Docker
-npm run docker:up        # Iniciar servicios
-npm run docker:down      # Detener servicios
-npm run docker:logs      # Ver logs
-
-# Utilidades
-npm run format           # Formatear código
-npm run setup            # Setup completo (primera vez)
-```
-
-## 📁 Estructura del Proyecto
-
-```
-baul-digital/
-├── src/
-│   ├── app/                 # Páginas Next.js (App Router)
-│   ├── components/          # Componentes React reutilizables
-│   ├── lib/                 # Utilidades y configuraciones
-│   ├── hooks/               # Custom hooks
-│   └── stores/              # Estado global (Zustand)
-├── scripts/                 # Scripts de automatización
-├── public/                  # Archivos estáticos
-├── docker-compose.yml       # Configuración Docker local
-├── .env.local.example       # Variables de entorno (ejemplo)
-└── LOCAL_DEVELOPMENT.md     # Guía completa de desarrollo local
-```
-
-## 🔄 Migración a Producción
-
-Cuando estés listo para producción:
-
-1. **Configurar Supabase**:
-   - Crear proyecto en [supabase.com](https://supabase.com)
-   - Vincular el proyecto local: `npx supabase link --project-ref <ref>`
-   - Aplicar todas las migraciones: `npx supabase db push`
-     - `001_init_schema.sql` — Tablas, RLS, triggers
-     - `002_storage_buckets.sql` — Buckets de Storage
-     - `003_document_limit.sql` — Límites de documentos por plan
-
-2. **Variables de Entorno**:
-   - Copiar `.env.local` a `.env.production`
-   - Actualizar credenciales de Supabase
-   - Configurar variables de producción
-
-3. **Desplegar**:
-   - Configurar variables en Vercel/Netlify
-   - Ejecutar `npm run build`
-   - Desplegar automáticamente
-
-## 📚 Documentación Adicional
-
-- **[LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md)**: Guía completa de desarrollo local
-- **[Arquitectura](docs/architecture.md)**: Documentación técnica
-- **[API](docs/api.md)**: Referencia de endpoints
-- **[Despliegue](docs/deployment.md)**: Guías de producción
-
-## 🤝 Contribución
-
-1. Fork el proyecto
-2. Crear rama para feature (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit cambios (`git commit -am 'Agregar nueva funcionalidad'`)
-4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
-5. Crear Pull Request
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver [LICENSE](LICENSE) para más detalles.
-
-## 👥 Equipo
-
-- **Desarrollador Principal**: José Lizardo
-- **Diseño UX/UI**: Equipo Baúl Digital
-- **Arquitectura**: José Lizardo
+PWA de gestión segura de documentos personales para usuarios colombianos. Permite subir, organizar y proteger documentos importantes con alertas automáticas de vencimiento.
 
 ---
 
-**Baúl Digital** - Simplificando la gestión documental en Ecuador 🇪🇨
+## Características implementadas
+
+| Módulo | Estado |
+|--------|--------|
+| Autenticación (registro, login, logout) | ✅ Producción |
+| Dashboard con documentos y búsqueda | ✅ Producción |
+| Carga de archivos a Supabase Storage | ✅ Producción |
+| Cuota de almacenamiento por plan | ✅ Producción |
+| Categorías automáticas al registrarse | ✅ Producción |
+| Edición de fecha de caducidad (inline) | ✅ Producción |
+| Eliminación de documentos | ✅ Producción |
+| Panel de alertas de vencimiento (en pantalla) | ✅ Producción |
+| Página de perfil y configuración | ✅ Producción |
+| Página de planes y precios | ✅ Producción |
+| Integración de pagos (Wompi/ePayco) | 🔜 Fase 2 |
+| Alertas por email | 🔜 Fase 2 |
+| Admin dashboard | 🔜 Fase 2 |
+
+---
+
+## Stack tecnológico
+
+- **Frontend**: Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS
+- **Backend**: Supabase (PostgreSQL + Auth + Storage + RLS)
+- **Auth**: `@supabase/ssr` con cookies en Route Handlers y middleware
+- **Iconos**: Lucide React
+
+---
+
+## Inicio rápido
+
+### 1. Instalar dependencias
+```bash
+cd baul_digital
+npm install
+```
+
+### 2. Configurar variables de entorno
+```bash
+cp .env.example .env.local
+```
+
+Editar `.env.local`:
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=tu-anon-key
+SUPABASE_SERVICE_ROLE_KEY=tu-service-role-key
+NEXT_PUBLIC_APP_ENV=production
+NEXT_PUBLIC_STORAGE_TYPE=supabase
+```
+
+### 3. Aplicar migraciones en Supabase
+```bash
+npx supabase link --project-ref <tu-project-ref>
+npx supabase db push
+```
+
+O ejecutarlas manualmente en el SQL Editor de Supabase en orden:
+1. `supabase/migrations/001_init_schema.sql`
+2. `supabase/migrations/002_storage_buckets.sql`
+3. `supabase/migrations/003_document_limit.sql`
+4. `supabase/migrations/004_auth_trigger.sql`
+5. `supabase/migrations/005_default_categories.sql`
+6. `supabase/migrations/006_fix_auth_trigger.sql`
+7. `supabase/migrations/007_update_free_limit.sql`
+
+### 4. Ejecutar en desarrollo
+```bash
+npm run dev
+# http://localhost:3000
+```
+
+---
+
+## Estructura de rutas
+
+```
+/                          → Landing page
+/login                     → Inicio de sesión
+/register                  → Registro de usuario
+/dashboard                 → Bóveda principal (documentos)
+/dashboard/settings        → Perfil y configuración
+/dashboard/pricing         → Planes y precios
+```
+
+---
+
+## Planes disponibles
+
+| Plan | Documentos | Almacenamiento | Precio |
+|------|-----------|----------------|--------|
+| Gratuito | 15 | 20 MB | $0 |
+| Premium | 500 | 500 MB | $9.900 COP/mes |
+| Empresarial | Hasta agotar almacenamiento | 5 GB | $49.900 COP/mes |
+
+Descuentos: **15% semestral** · **25% anual**
+
+---
+
+## Variables de entorno requeridas
+
+| Variable | Descripción |
+|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave pública anon |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clave service role (solo servidor) |
+| `NEXT_PUBLIC_APP_ENV` | `production` o `development` |
+| `NEXT_PUBLIC_STORAGE_TYPE` | `supabase` |
+
+---
+
+## Desarrollador
+
+**José Lizardo** — jlizardocastro@gmail.com
+
+*Baúl Digital — Gestión inteligente y segura de documentos para Colombia*
