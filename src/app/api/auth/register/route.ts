@@ -85,6 +85,7 @@ export async function POST(request: Request) {
         data: {
           nombres,
           apellidos,
+          full_name:    `${nombres.trim()} ${apellidos.trim()}`,
           cedula_unica: cedulaUnica,
           cedula_tipo:  cedulaTipo,
         },
@@ -95,15 +96,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: authError.message }, { status: 400 });
     }
 
-    // Registrar fecha y versión de aceptación de términos (Ley 1581/2012)
     if (authData.user) {
-      await supabaseAdmin
+      // Upsert manual del perfil: respaldo si el trigger falla + registra consentimiento
+      const { error: upsertError } = await supabaseAdmin
         .from('profiles')
-        .update({
+        .upsert({
+          id:                authData.user.id,
+          email:             email.trim().toLowerCase(),
+          nombres:           nombres.trim(),
+          apellidos:         apellidos.trim(),
+          full_name:         `${nombres.trim()} ${apellidos.trim()}`,
+          cedula_unica:      cedulaUnica.trim(),
+          cedula_tipo:       cedulaTipo,
           accepted_terms_at: new Date().toISOString(),
           terms_version:     '1.0',
-        })
-        .eq('id', authData.user.id);
+        }, { onConflict: 'id' });
+
+      // Código 23505 = violación de unique constraint → cédula ya registrada
+      if (upsertError?.code === '23505') {
+        await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+        return NextResponse.json(
+          { error: 'Ese número de documento ya está registrado en otra cuenta.' },
+          { status: 409 }
+        );
+      }
     }
 
     return NextResponse.json({ success: true, user: authData.user });
