@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, HardDrive, FileText, Clock, AlertCircle, AlertTriangle, ShieldAlert, Trash2, Search, Download, Pencil, Check, X, ChevronDown } from 'lucide-react';
+import { Plus, HardDrive, FileText, Clock, AlertCircle, AlertTriangle, ShieldAlert, Trash2, Search, Download, Pencil, Check, X, ChevronDown, Eye } from 'lucide-react';
 import { FileUpload } from '@/components/FileUpload';
 import { deleteDocument, getDownloadUrl } from '@/services/documentService';
 
@@ -16,6 +16,8 @@ export default function DashboardPage() {
   const [alertsExpanded, setAlertsExpanded] = useState(true);
   const [editingExpiry, setEditingExpiry] = useState<{ id: string; value: string } | null>(null);
   const [savingExpiry, setSavingExpiry] = useState(false);
+  const [preview, setPreview] = useState<{ url: string; name: string; mimeType: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // Obtener ID del usuario autenticado
   useEffect(() => {
@@ -78,11 +80,30 @@ export default function DashboardPage() {
     setSavingExpiry(false);
   };
 
-  const handleOpen = async (docId: string) => {
+  const getMimeType = (fileName: string): string => {
+    const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
+    const map: Record<string, string> = {
+      pdf: 'application/pdf',
+      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+      gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+      mp4: 'video/mp4', mp3: 'audio/mpeg',
+    };
+    return map[ext] ?? 'application/octet-stream';
+  };
+
+  const handleOpen = async (docId: string, fileName: string) => {
     if (!userId) return;
+    setPreviewLoading(true);
     const { url, error } = await getDownloadUrl(userId, docId);
+    setPreviewLoading(false);
     if (url) {
-      window.open(url, '_blank');
+      const mimeType = getMimeType(fileName);
+      const previewable = mimeType.startsWith('image/') || mimeType === 'application/pdf';
+      if (previewable) {
+        setPreview({ url, name: fileName, mimeType });
+      } else {
+        window.open(url, '_blank');
+      }
     } else {
       alert(error || 'No se pudo obtener el enlace del documento.');
     }
@@ -136,6 +157,54 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 pb-12">
+
+      {/* ── Modal de previsualización ── */}
+      {preview && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/95 backdrop-blur-sm">
+          {/* Barra superior */}
+          <div className="flex items-center justify-between px-4 py-3 bg-slate-900/80 border-b border-white/10 flex-shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <FileText className="w-5 h-5 text-blue-400 flex-shrink-0" />
+              <span className="text-white font-medium text-sm truncate">{preview.name}</span>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+              <a
+                href={preview.url}
+                download={preview.name}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-lg text-xs font-medium transition-colors border border-blue-500/30"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Descargar</span>
+              </a>
+              <button
+                onClick={() => setPreview(null)}
+                className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Contenido */}
+          <div className="flex-1 overflow-hidden flex items-center justify-center p-2 md:p-4">
+            {preview.mimeType === 'application/pdf' ? (
+              <iframe
+                src={`${preview.url}#toolbar=1&navpanes=0`}
+                className="w-full h-full rounded-lg border border-white/10"
+                title={preview.name}
+              />
+            ) : preview.mimeType.startsWith('image/') ? (
+              <img
+                src={preview.url}
+                alt={preview.name}
+                className="max-w-full max-h-full object-contain rounded-lg select-none"
+              />
+            ) : null}
+          </div>
+        </div>
+      )}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white tracking-tight">Tu Bóveda</h1>
@@ -400,11 +469,12 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => handleOpen(doc.id)}
-                    className="flex items-center px-4 py-2 text-sm font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
+                    onClick={() => handleOpen(doc.id, doc.file_name)}
+                    disabled={previewLoading}
+                    className="flex items-center px-4 py-2 text-sm font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 rounded-lg transition-colors"
                   >
-                    <Download className="w-4 h-4 mr-1.5" />
-                    Abrir
+                    <Eye className="w-4 h-4 mr-1.5" />
+                    Ver
                   </button>
                   <button
                     onClick={() => handleDelete(doc.id)}
