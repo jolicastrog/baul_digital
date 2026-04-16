@@ -4,7 +4,6 @@ import {
   processApprovedPayment,
   processFailedPayment,
   getUserByEmail,
-  EPaycoPaymentNotification,
 } from '@/services/paymentService';
 import { PlanType } from '@/types';
 
