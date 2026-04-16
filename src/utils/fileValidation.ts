@@ -111,7 +111,7 @@ export async function compressImage(
     maxSizeMB: 0.3, // 300KB
     maxWidthOrHeight: MAX_IMAGE_DIMENSIONS.width,
     useWebWorker: true,
-    quality: 0.8,
+    initialQuality: 0.8,
     ...options,
   };
 

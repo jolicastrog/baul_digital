@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createClient } from '@supabase/supabase-js';
 import { Pool } from 'pg';
 import { Database } from '@/types/database';

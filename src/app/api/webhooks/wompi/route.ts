@@ -6,7 +6,7 @@ import {
   getUserByEmail,
   WompiPaymentNotification,
 } from '@/services/paymentService';
-import { PlanType } from '@/types';
+import { PlanType, PaymentGateway } from '@/types';
 
 export const POST = async (request: NextRequest) => {
   try {
@@ -58,7 +58,7 @@ export const POST = async (request: NextRequest) => {
       success = await processApprovedPayment(
         user.id,
         transactionId,
-        'wompi',
+        PaymentGateway.WOMPI,
         planType,
         transaction.amount_in_cents,
         notification.data
@@ -67,7 +67,7 @@ export const POST = async (request: NextRequest) => {
       success = await processFailedPayment(
         user.id,
         transactionId,
-        'wompi',
+        PaymentGateway.WOMPI,
         transaction.amount_in_cents,
         notification.data
       );

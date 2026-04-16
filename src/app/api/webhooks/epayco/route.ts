@@ -5,7 +5,7 @@ import {
   processFailedPayment,
   getUserByEmail,
 } from '@/services/paymentService';
-import { PlanType } from '@/types';
+import { PlanType, PaymentGateway } from '@/types';
 
 export const POST = async (request: NextRequest) => {
   try {
@@ -51,18 +51,18 @@ export const POST = async (request: NextRequest) => {
       success = await processApprovedPayment(
         user.id,
         transactionId,
-        'epayco',
+        PaymentGateway.EPAYCO,
         planType,
         amount,
-        Object.fromEntries(params)
+        params
       );
     } else {
       success = await processFailedPayment(
         user.id,
         transactionId,
-        'epayco',
+        PaymentGateway.EPAYCO,
         amount,
-        Object.fromEntries(params)
+        params
       );
     }
 

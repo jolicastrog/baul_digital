@@ -76,7 +76,8 @@
     "node_modules",
     ".next",
     "dist",
-    "build"
+    "build",
+    "supabase/functions"
   ],
   "ts-node": {
     "esm": true

@@ -76,18 +76,6 @@ export function validateEPaycoSignature(params: Record<string, string>): boolean
 // MANEJO DE PAGOS
 // ============================================================================
 
-/**
- * Mapea el plan del producto al tipo de suscripción
- */
-function mapProductToPlanType(productId: string): PlanType {
-  const productMap: Record<string, PlanType> = {
-    'premium-monthly': PlanType.PREMIUM,
-    'premium-yearly': PlanType.PREMIUM,
-    'enterprise-monthly': PlanType.ENTERPRISE,
-    'enterprise-yearly': PlanType.ENTERPRISE,
-  };
-  return productMap[productId] || PlanType.FREE;
-}
 
 /**
  * Obtiene la cuota de almacenamiento por plan
