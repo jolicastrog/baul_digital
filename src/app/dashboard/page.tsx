@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, HardDrive, FileText, Clock, AlertCircle, AlertTriangle, ShieldAlert, Trash2, Search, Download, Pencil, Check, X, ChevronDown, Eye } from 'lucide-react';
 import { FileUpload } from '@/components/FileUpload';
-import { deleteDocument, getDownloadUrl } from '@/services/documentService';
+import { deleteDocument } from '@/services/documentService';
 
 export default function DashboardPage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -92,20 +92,23 @@ export default function DashboardPage() {
   };
 
   const handleOpen = async (docId: string, fileName: string) => {
-    if (!userId) return;
     setPreviewLoading(true);
-    const { url, error } = await getDownloadUrl(userId, docId);
-    setPreviewLoading(false);
-    if (url) {
+    try {
+      const res = await fetch(`/api/documents/url?id=${docId}`);
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        alert(data.error || 'No se pudo obtener el enlace del documento.');
+        return;
+      }
       const mimeType = getMimeType(fileName);
       const previewable = mimeType.startsWith('image/') || mimeType === 'application/pdf';
       if (previewable) {
-        setPreview({ url, name: fileName, mimeType });
+        setPreview({ url: data.url, name: fileName, mimeType });
       } else {
-        window.open(url, '_blank');
+        window.open(data.url, '_blank');
       }
-    } else {
-      alert(error || 'No se pudo obtener el enlace del documento.');
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
