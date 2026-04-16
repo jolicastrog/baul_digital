@@ -112,12 +112,23 @@ export async function POST(request: Request) {
           terms_version:     '1.0',
         }, { onConflict: 'id' });
 
-      // Código 23505 = violación de unique constraint → cédula ya registrada
-      if (upsertError?.code === '23505') {
+      if (upsertError) {
+        console.error('Profile upsert error:', upsertError);
+
+        // Revertir: eliminar el usuario de auth para no dejar registros huérfanos
         await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+
+        // Cédula duplicada
+        if (upsertError.code === '23505') {
+          return NextResponse.json(
+            { error: 'Ese número de documento ya está registrado en otra cuenta.' },
+            { status: 409 }
+          );
+        }
+
         return NextResponse.json(
-          { error: 'Ese número de documento ya está registrado en otra cuenta.' },
-          { status: 409 }
+          { error: `Error al crear el perfil: ${upsertError.message}` },
+          { status: 500 }
         );
       }
     }

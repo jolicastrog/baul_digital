@@ -1,7 +1,14 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const publicRoutes = ['/login', '/register', '/forgot-password'];
+const publicRoutes = [
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/auth/confirm',
+  '/privacidad',
+  '/terminos',
+];
 
 /**
  * Middleware de autenticación para Next.js (Edge Runtime).
