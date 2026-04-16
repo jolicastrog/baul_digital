@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Lock, Mail, ShieldCheck, Eye, EyeOff, XCircle } from 'lucide-react';
+import { Lock, Mail, ShieldCheck, Eye, EyeOff, XCircle, CheckCircle2 } from 'lucide-react';
 import LegalFooter from '@/components/LegalFooter';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -31,8 +31,14 @@ function inputClass(hasError?: boolean) {
       : 'border-white/10 focus:ring-blue-500 focus:border-transparent'}`;
 }
 
+const ERROR_MESSAGES: Record<string, string> = {
+  enlace_invalido:      'El enlace de confirmación no es válido o ya fue usado.',
+  confirmacion_fallida: 'No se pudo confirmar el correo. Solicita un nuevo enlace.',
+};
+
 export default function LoginPage() {
-  const router = useRouter();
+  const router       = useRouter();
+  const searchParams = useSearchParams();
 
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
@@ -41,6 +47,14 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false);
   const [loading,  setLoading]  = useState(false);
   const [serverError, setServerError] = useState('');
+  const [infoMsg,     setInfoMsg]     = useState('');
+
+  useEffect(() => {
+    const err = searchParams.get('error');
+    if (err && ERROR_MESSAGES[err]) setServerError(ERROR_MESSAGES[err]);
+    const msg = searchParams.get('msg');
+    if (msg === 'confirmado') setInfoMsg('¡Correo confirmado! Ya puedes iniciar sesión.');
+  }, [searchParams]);
 
   const validateEmail = (val: string): string | undefined => {
     if (!val.trim())                     return 'El correo es obligatorio.';
@@ -113,6 +127,14 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 p-6 sm:p-8 rounded-3xl shadow-2xl">
+          {/* Mensaje de éxito (ej. email confirmado) */}
+          {infoMsg && (
+            <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              {infoMsg}
+            </div>
+          )}
+
           {/* Error del servidor */}
           {serverError && (
             <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium flex items-start gap-2">

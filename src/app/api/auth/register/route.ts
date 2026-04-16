@@ -38,6 +38,20 @@ export async function POST(request: Request) {
       );
     }
 
+    // Verificar si el número de documento ya está registrado
+    const { data: existingCedula } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('cedula_unica', cedulaUnica.trim())
+      .maybeSingle();
+
+    if (existingCedula) {
+      return NextResponse.json(
+        { error: 'Ese número de documento ya está registrado en otra cuenta.' },
+        { status: 409 }
+      );
+    }
+
     const cookieStore = cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
