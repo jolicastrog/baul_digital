@@ -38,7 +38,7 @@ export async function GET() {
     // Usamos admin para leer el perfil sin que RLS interfiera
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('full_name, email, plan_type, storage_used_bytes, storage_quota_bytes')
+      .select('nombres, apellidos, full_name, email, plan_type, storage_used_bytes, storage_quota_bytes')
       .eq('id', user.id)
       .single();
 

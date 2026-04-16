@@ -61,7 +61,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { full_name, cedula_unica, cedula_tipo, phone } = body;
+    const { nombres, apellidos, cedula_unica, cedula_tipo, phone } = body;
 
     // Verificar que cedula_unica no la use otro usuario
     if (cedula_unica) {
@@ -80,11 +80,12 @@ export async function PATCH(request: Request) {
       }
     }
 
-    const updates: Record<string, string> = {};
-    if (full_name !== undefined) updates.full_name = full_name;
+    const updates: Record<string, string | null> = {};
+    if (nombres     !== undefined) updates.nombres     = nombres;
+    if (apellidos   !== undefined) updates.apellidos   = apellidos;
     if (cedula_unica !== undefined) updates.cedula_unica = cedula_unica;
-    if (cedula_tipo !== undefined) updates.cedula_tipo = cedula_tipo;
-    if (phone !== undefined) updates.phone = phone;
+    if (cedula_tipo  !== undefined) updates.cedula_tipo  = cedula_tipo;
+    if (phone        !== undefined) updates.phone        = phone;
 
     const { data: profile, error: updateError } = await supabaseAdmin
       .from('profiles')

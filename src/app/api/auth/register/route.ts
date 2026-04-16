@@ -1,14 +1,34 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password, fullName, cedulaUnica, cedulaTipo } = body;
+    const { email, password, nombres, apellidos, cedulaUnica, cedulaTipo } = body;
 
-    if (!email || !password || !fullName || !cedulaUnica || !cedulaTipo) {
+    if (!email || !password || !nombres || !apellidos || !cedulaUnica || !cedulaTipo) {
       return NextResponse.json({ error: 'Faltan campos requeridos' }, { status: 400 });
+    }
+
+    // Verificar si el email ya está registrado
+    const { data: existing } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('email', email.trim().toLowerCase())
+      .maybeSingle();
+
+    if (existing) {
+      return NextResponse.json(
+        { error: 'Este correo electrónico ya está registrado. Intenta iniciar sesión.' },
+        { status: 409 }
+      );
     }
 
     const cookieStore = cookies();
@@ -34,9 +54,10 @@ export async function POST(request: Request) {
       password,
       options: {
         data: {
-          full_name: fullName,
+          nombres,
+          apellidos,
           cedula_unica: cedulaUnica,
-          cedula_tipo: cedulaTipo,
+          cedula_tipo:  cedulaTipo,
         },
       },
     });
