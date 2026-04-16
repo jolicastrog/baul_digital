@@ -223,8 +223,7 @@ export default function RegisterPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al procesar el registro');
-      router.push('/dashboard');
-      router.refresh();
+      router.push('/login?msg=verifica_email');
     } catch (err: any) {
       setServerError(err.message);
       setLoading(false);

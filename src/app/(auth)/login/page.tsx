@@ -36,6 +36,11 @@ const ERROR_MESSAGES: Record<string, string> = {
   confirmacion_fallida: 'No se pudo confirmar el correo. Solicita un nuevo enlace.',
 };
 
+const INFO_MESSAGES: Record<string, string> = {
+  confirmado:     '¡Correo confirmado! Ya puedes iniciar sesión.',
+  verifica_email: '¡Registro exitoso! Revisa tu bandeja de entrada y confirma tu correo electrónico para poder ingresar.',
+};
+
 export default function LoginPage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
@@ -53,7 +58,7 @@ export default function LoginPage() {
     const err = searchParams.get('error');
     if (err && ERROR_MESSAGES[err]) setServerError(ERROR_MESSAGES[err]);
     const msg = searchParams.get('msg');
-    if (msg === 'confirmado') setInfoMsg('¡Correo confirmado! Ya puedes iniciar sesión.');
+    if (msg && INFO_MESSAGES[msg]) setInfoMsg(INFO_MESSAGES[msg]);
   }, [searchParams]);
 
   const validateEmail = (val: string): string | undefined => {

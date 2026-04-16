@@ -24,27 +24,35 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verificar si el email ya está registrado
-    const { data: existing } = await supabaseAdmin
-      .from('profiles')
-      .select('id')
-      .eq('email', email.trim().toLowerCase())
-      .maybeSingle();
-
-    if (existing) {
+    // Verificar email único — buscamos en auth.users (incluye usuarios sin confirmar)
+    const { data: authList } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+    const emailLower = email.trim().toLowerCase();
+    const emailTaken = authList?.users?.some(u => u.email?.toLowerCase() === emailLower);
+    if (emailTaken) {
       return NextResponse.json(
         { error: 'Este correo electrónico ya está registrado. Intenta iniciar sesión.' },
         { status: 409 }
       );
     }
 
-    // Verificar si el número de documento ya está registrado
+    // Verificar cédula única — buscamos en auth.users metadata (incluye usuarios sin confirmar)
+    // y también en profiles (usuarios ya confirmados)
+    const cedulaNorm = cedulaUnica.trim();
+    const cedulaTakenInMeta = authList?.users?.some(
+      u => u.user_metadata?.cedula_unica === cedulaNorm
+    );
+    if (cedulaTakenInMeta) {
+      return NextResponse.json(
+        { error: 'Ese número de documento ya está registrado en otra cuenta.' },
+        { status: 409 }
+      );
+    }
+
     const { data: existingCedula } = await supabaseAdmin
       .from('profiles')
       .select('id')
-      .eq('cedula_unica', cedulaUnica.trim())
+      .eq('cedula_unica', cedulaNorm)
       .maybeSingle();
-
     if (existingCedula) {
       return NextResponse.json(
         { error: 'Ese número de documento ya está registrado en otra cuenta.' },
