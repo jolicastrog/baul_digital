@@ -26,8 +26,7 @@ export enum AlertStatus {
 }
 
 export enum PaymentGateway {
-  WOMPI = 'wompi',
-  EPAYCO = 'epayco',
+  MERCADOPAGO = 'mercadopago',
 }
 
 export enum PaymentStatus {
@@ -194,36 +193,14 @@ export interface DocumentUploadPayload {
   access_level?: DocumentAccessLevel;
 }
 
-export interface WompiPaymentRequest {
-  amount_in_cents: number;
-  currency: string;
-  payment_method: {
-    type: 'CARD';
-    installments: number;
-  };
-  reference: string;
-  customer: {
-    email: string;
-    phone_number: string;
-  };
-  redirect_url: string;
+export interface MercadoPagoPreferenceRequest {
+  planType: PlanType;
+  billingCycle: 'monthly' | 'semiannual' | 'annual';
 }
 
-export interface EPaycoPaymentRequest {
-  public_key: string;
-  amount: number;
-  tax: number;
-  tax_base: number;
-  currency: string;
-  invoice: string;
-  description: string;
-  customer: {
-    name: string;
-    email: string;
-    phone: string;
-    document: string;
-  };
-  extra?: Record<string, any>;
+export interface MercadoPagoPreferenceResponse {
+  preferenceId: string;
+  initPoint: string;
 }
 
 export interface PlanDetails {

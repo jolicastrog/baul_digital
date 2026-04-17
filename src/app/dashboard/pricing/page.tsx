@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, Zap, Shield, Building2, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { Check, Zap, Shield, Building2, ChevronDown, ChevronUp, Sparkles, Loader2 } from 'lucide-react';
 
 type PlanType = 'free' | 'premium' | 'enterprise';
 type BillingCycle = 'monthly' | 'semiannual' | 'annual';
@@ -89,8 +89,8 @@ const PLANS: Plan[] = [
       'Compartir documentos con familia',
       'Soporte prioritario',
     ],
-    ctaStyle: 'bg-blue-600/20 text-blue-400 border border-blue-500/30 cursor-not-allowed opacity-60',
-    available: false,
+    ctaStyle: 'bg-blue-600 hover:bg-blue-500 text-white',
+    available: true,
     highlighted: true,
   },
   {
@@ -112,8 +112,8 @@ const PLANS: Plan[] = [
       'API de integración',
       'Soporte dedicado 24/7',
     ],
-    ctaStyle: 'bg-purple-600/20 text-purple-400 border border-purple-500/30 cursor-not-allowed opacity-60',
-    available: false,
+    ctaStyle: 'bg-purple-600 hover:bg-purple-500 text-white',
+    available: true,
   },
 ];
 
@@ -152,14 +152,40 @@ function PeriodLabel({ cycle }: { cycle: BillingCycle }) {
 
 export default function PricingPage() {
   const [currentPlan, setCurrentPlan] = useState<PlanType>('free');
-  const [billing, setBilling] = useState<BillingCycle>('monthly');
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [billing, setBilling]         = useState<BillingCycle>('monthly');
+  const [openFaq, setOpenFaq]         = useState<number | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<PlanType | null>(null);
+  const [paymentMsg, setPaymentMsg]   = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/auth/me')
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.profile?.plan_type) setCurrentPlan(d.profile.plan_type); });
+
+    // Mostrar resultado de pago si viene de MercadoPago
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get('payment');
+    if (payment === 'success') setPaymentMsg('¡Pago aprobado! Tu plan será actualizado en breve.');
+    if (payment === 'failed')  setPaymentMsg('El pago no fue procesado. Intenta de nuevo.');
+    if (payment === 'pending') setPaymentMsg('Tu pago está pendiente de confirmación.');
   }, []);
+
+  const handleCheckout = async (planId: PlanType) => {
+    setLoadingPlan(planId);
+    try {
+      const res = await fetch('/api/payments/create-preference', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ planType: planId, billingCycle: billing }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      window.location.href = data.initPoint;
+    } catch (err: any) {
+      setPaymentMsg(err.message || 'Error al iniciar el pago. Intenta de nuevo.');
+      setLoadingPlan(null);
+    }
+  };
 
   return (
     <div className="space-y-10 pb-12 max-w-5xl">
@@ -169,6 +195,14 @@ export default function PricingPage() {
           Elige el plan que se adapta a tus necesidades. Empieza gratis y actualiza cuando lo necesites.
         </p>
       </header>
+
+      {paymentMsg && (
+        <div className={`p-4 rounded-xl text-sm font-medium text-center ${
+          paymentMsg.includes('aprobado') ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+        }`}>
+          {paymentMsg}
+        </div>
+      )}
 
       {/* Selector de ciclo de pago */}
       <div className="flex items-center justify-center">
@@ -277,10 +311,15 @@ export default function PricingPage() {
 
               {/* CTA */}
               <button
-                disabled={!plan.available || isCurrent}
-                className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all ${plan.ctaStyle}`}
+                disabled={!plan.available || isCurrent || loadingPlan === plan.id}
+                onClick={() => plan.available && !isCurrent && handleCheckout(plan.id)}
+                className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${plan.ctaStyle} disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                {isCurrent ? 'Plan actual' : 'Próximamente'}
+                {loadingPlan === plan.id
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Procesando...</>
+                  : isCurrent ? 'Plan actual'
+                  : plan.available ? 'Contratar'
+                  : 'Próximamente'}
               </button>
             </div>
           );
