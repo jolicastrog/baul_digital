@@ -3,7 +3,6 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 
-// Cliente admin para consultas de BD sin restricción RLS
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -12,8 +11,6 @@ const supabaseAdmin = createClient(
 export async function GET() {
   try {
     const cookieStore = cookies();
-
-    // Solo usamos el cliente anon para verificar la sesión
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -30,20 +27,26 @@ export async function GET() {
     );
 
     const { data: { user }, error } = await supabase.auth.getUser();
-
     if (error || !user) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    // Usamos admin para leer el perfil sin que RLS interfiera
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('nombres, apellidos, full_name, email, plan_type, storage_used_bytes, storage_quota_bytes')
-      .eq('id', user.id)
-      .single();
+    // Usa la función BD para obtener el perfil (misma que usa /api/profile)
+    const { data: result, error: rpcError } = await supabaseAdmin
+      .rpc('get_user_profile', { p_user_id: user.id });
 
-    return NextResponse.json({ user: { id: user.id, email: user.email }, profile });
+    if (rpcError || !result) {
+      console.error('get_user_profile error in /api/auth/me:', rpcError);
+      return NextResponse.json({ error: 'Error al cargar el perfil.' }, { status: 500 });
+    }
+
+    const res = result as { found: boolean; profile?: Record<string, unknown> };
+
+    return NextResponse.json({
+      user:    { id: user.id, email: user.email },
+      profile: res.found ? res.profile : null,
+    });
   } catch {
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Error interno.' }, { status: 500 });
   }
 }

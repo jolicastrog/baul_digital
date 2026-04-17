@@ -8,6 +8,24 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Mensajes de error de Supabase Auth traducidos al español
+const AUTH_ERROR_ES: Record<string, string> = {
+  'User already registered':
+    'Este correo electrónico ya está registrado. Intenta iniciar sesión.',
+  'Password should be at least 6 characters.':
+    'La contraseña debe tener al menos 6 caracteres.',
+  'Signup requires a valid password':
+    'Se requiere una contraseña válida.',
+  'Invalid email':
+    'El correo electrónico no es válido.',
+  'Email rate limit exceeded':
+    'Demasiados intentos. Espera unos minutos e intenta de nuevo.',
+  'over_email_send_rate_limit':
+    'Demasiados intentos. Espera unos minutos e intenta de nuevo.',
+  'For security purposes, you can only request this once every 60 seconds':
+    'Por seguridad, solo puedes intentar una vez cada 60 segundos.',
+};
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -57,7 +75,8 @@ export async function POST(request: Request) {
     });
 
     if (authError) {
-      return NextResponse.json({ error: authError.message }, { status: 400 });
+      const msg = AUTH_ERROR_ES[authError.message] ?? 'Error al crear la cuenta. Intenta de nuevo.';
+      return NextResponse.json({ error: msg }, { status: 400 });
     }
 
     if (!authData.user) {

@@ -26,128 +26,127 @@ function getAnonSupabase() {
   );
 }
 
-// GET — obtener perfil completo
+/** Autentica la petición y retorna el user_id, o null si no hay sesión válida. */
+async function getAuthUserId(): Promise<string | null> {
+  const supabase = getAnonSupabase();
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) return null;
+  return user.id;
+}
+
+// GET — obtener perfil completo (usa función BD get_user_profile)
 export async function GET() {
   try {
-    const supabase = getAnonSupabase();
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) {
+    const userId = await getAuthUserId();
+    if (!userId) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
+    const { data: result, error: rpcError } = await supabaseAdmin
+      .rpc('get_user_profile', { p_user_id: userId });
 
-    if (profileError || !profile) {
-      return NextResponse.json({ error: 'Perfil no encontrado' }, { status: 404 });
+    if (rpcError) {
+      console.error('get_user_profile RPC error:', rpcError);
+      return NextResponse.json({ error: 'Error al cargar el perfil.' }, { status: 500 });
     }
 
-    return NextResponse.json({ profile });
-  } catch {
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+    const res = result as { found: boolean; profile?: unknown; error?: string };
+
+    if (!res.found) {
+      return NextResponse.json({ error: res.error ?? 'Perfil no encontrado.' }, { status: 404 });
+    }
+
+    return NextResponse.json({ profile: res.profile });
+  } catch (err) {
+    console.error('GET /api/profile error:', err);
+    return NextResponse.json({ error: 'Error interno.' }, { status: 500 });
   }
 }
 
-// PATCH — actualizar datos del perfil
+// PATCH — actualizar datos del perfil (usa función BD update_user_profile)
 export async function PATCH(request: Request) {
   try {
-    const supabase = getAnonSupabase();
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) {
+    const userId = await getAuthUserId();
+    if (!userId) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
     const body = await request.json();
     const { nombres, apellidos, cedula_unica, cedula_tipo, phone } = body;
 
-    // Verificar que cedula_unica no la use otro usuario
-    if (cedula_unica) {
-      const { data: existing } = await supabaseAdmin
-        .from('profiles')
-        .select('id')
-        .eq('cedula_unica', cedula_unica)
-        .neq('id', user.id)
-        .single();
+    const { data: result, error: rpcError } = await supabaseAdmin
+      .rpc('update_user_profile', {
+        p_user_id:      userId,
+        p_nombres:      nombres      ?? null,
+        p_apellidos:    apellidos    ?? null,
+        p_cedula_unica: cedula_unica ?? null,
+        p_cedula_tipo:  cedula_tipo  ?? null,
+        p_phone:        phone        ?? null,
+      });
 
-      if (existing) {
-        return NextResponse.json(
-          { error: 'Esa cédula ya está registrada por otro usuario' },
-          { status: 409 }
-        );
-      }
+    if (rpcError) {
+      console.error('update_user_profile RPC error:', rpcError);
+      return NextResponse.json({ error: 'Error al guardar el perfil.' }, { status: 500 });
     }
 
-    const updates: Record<string, string | null> = {};
-    if (nombres     !== undefined) updates.nombres     = nombres;
-    if (apellidos   !== undefined) updates.apellidos   = apellidos;
-    if (cedula_unica !== undefined) updates.cedula_unica = cedula_unica;
-    if (cedula_tipo  !== undefined) updates.cedula_tipo  = cedula_tipo;
-    if (phone        !== undefined) updates.phone        = phone;
+    const res = result as { success?: boolean; profile?: unknown; error?: string; message?: string };
 
-    const { data: profile, error: updateError } = await supabaseAdmin
-      .from('profiles')
-      .update(updates)
-      .eq('id', user.id)
-      .select()
-      .single();
-
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    if (res.error) {
+      const status = res.error === 'cedula_taken' ? 409 : 400;
+      return NextResponse.json({ error: res.message }, { status });
     }
 
-    // Registrar en audit log
-    await supabaseAdmin.from('audit_logs').insert({
-      user_id: user.id,
-      action: 'PROFILE_UPDATED',
+    // Registrar en audit log (sin bloquear la respuesta)
+    void supabaseAdmin.from('audit_logs').insert({
+      user_id:       userId,
+      action:        'PROFILE_UPDATED',
       resource_type: 'profile',
-      resource_id: user.id,
-      details: { fields_updated: Object.keys(updates) },
+      resource_id:   userId,
+      details:       { fields_updated: Object.keys(body) },
     });
 
-    return NextResponse.json({ success: true, profile });
-  } catch {
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+    return NextResponse.json({ success: true, profile: res.profile });
+  } catch (err) {
+    console.error('PATCH /api/profile error:', err);
+    return NextResponse.json({ error: 'Error interno.' }, { status: 500 });
   }
 }
 
 // POST — cambiar contraseña
 export async function POST(request: Request) {
   try {
-    const supabase = getAnonSupabase();
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) {
+    const userId = await getAuthUserId();
+    if (!userId) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
     const { password } = await request.json();
     if (!password || password.length < 8) {
       return NextResponse.json(
-        { error: 'La contraseña debe tener al menos 8 caracteres' },
+        { error: 'La contraseña debe tener al menos 8 caracteres.' },
         { status: 400 }
       );
     }
 
     const { error: pwError } = await supabaseAdmin.auth.admin.updateUserById(
-      user.id,
+      userId,
       { password }
     );
 
     if (pwError) {
-      return NextResponse.json({ error: pwError.message }, { status: 500 });
+      return NextResponse.json({ error: 'No se pudo cambiar la contraseña. Intenta de nuevo.' }, { status: 500 });
     }
 
-    await supabaseAdmin.from('audit_logs').insert({
-      user_id: user.id,
-      action: 'PASSWORD_CHANGED',
+    void supabaseAdmin.from('audit_logs').insert({
+      user_id:       userId,
+      action:        'PASSWORD_CHANGED',
       resource_type: 'profile',
-      resource_id: user.id,
+      resource_id:   userId,
     });
 
     return NextResponse.json({ success: true });
-  } catch {
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+  } catch (err) {
+    console.error('POST /api/profile error:', err);
+    return NextResponse.json({ error: 'Error interno.' }, { status: 500 });
   }
 }

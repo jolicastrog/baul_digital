@@ -27,14 +27,14 @@ type Profile = {
 
 // ── Constantes ─────────────────────────────────────────────────────────────
 const CEDULA_TIPOS: { value: CedulaTipo; label: string }[] = [
-  { value: 'CC',  label: 'Cédula de Ciudadanía' },
-  { value: 'TI',  label: 'Tarjeta de Identidad' },
-  { value: 'RC',  label: 'Registro Civil' },
-  { value: 'CE',  label: 'Cédula de Extranjería' },
-  { value: 'PA',  label: 'Pasaporte' },
-  { value: 'NIT', label: 'NIT' },
-  { value: 'PEP', label: 'Perm. Especial Permanencia' },
-  { value: 'PPT', label: 'Perm. Protección Temporal' },
+  { value: 'CC',  label: 'CC – Cédula Ciudadanía' },
+  { value: 'TI',  label: 'TI – Tarjeta Identidad' },
+  { value: 'RC',  label: 'RC – Registro Civil' },
+  { value: 'CE',  label: 'CE – Cédula Extranjería' },
+  { value: 'PA',  label: 'PA – Pasaporte' },
+  { value: 'NIT', label: 'NIT – NIT Empresarial' },
+  { value: 'PEP', label: 'PEP – Perm. Especial' },
+  { value: 'PPT', label: 'PPT – Perm. Protección' },
 ];
 
 const CEDULA_RULES: Record<CedulaTipo, { pattern: RegExp; msg: string; placeholder: string; maxLen: number; inputMode: 'numeric' | 'text' }> = {
@@ -93,8 +93,9 @@ function inputCls(error?: string) {
 
 // ── Página ─────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const [profile,  setProfile]  = useState<Profile | null>(null);
-  const [loading,  setLoading]  = useState(true);
+  const [profile,   setProfile]   = useState<Profile | null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Formulario perfil
   const [nombres,     setNombres]     = useState('');
@@ -122,7 +123,10 @@ export default function SettingsPage() {
   // ── Carga inicial ────────────────────────────────────────────────────────
   useEffect(() => {
     fetch('/api/profile')
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(r.status === 401 ? 'no_auth' : `HTTP ${r.status}`);
+        return r.json();
+      })
       .then(data => {
         if (data.profile) {
           const p = data.profile as Profile;
@@ -132,6 +136,16 @@ export default function SettingsPage() {
           setCedulaUnica(p.cedula_unica ?? '');
           setCedulaTipo((p.cedula_tipo as CedulaTipo) ?? 'CC');
           setPhone(p.phone ?? '');
+        } else {
+          setLoadError('No se encontró el perfil. Intenta cerrar sesión y volver a ingresar.');
+        }
+      })
+      .catch(err => {
+        console.error('Error cargando perfil:', err);
+        if (err.message === 'no_auth') {
+          setLoadError('Tu sesión expiró. Cierra sesión e inicia de nuevo.');
+        } else {
+          setLoadError('No se pudo cargar el perfil. Recarga la página.');
         }
       })
       .finally(() => setLoading(false));
@@ -286,6 +300,15 @@ export default function SettingsPage() {
     return (
       <div className="flex items-center justify-center h-64 text-slate-400">
         <Loader2 className="w-6 h-6 animate-spin mr-2" /> Cargando perfil...
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex items-center gap-3 p-5 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 max-w-lg mt-8">
+        <AlertCircle className="w-5 h-5 flex-shrink-0" />
+        <p className="text-sm">{loadError}</p>
       </div>
     );
   }
