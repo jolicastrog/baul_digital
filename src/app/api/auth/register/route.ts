@@ -8,7 +8,6 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Mensajes de error de Supabase Auth traducidos al español
 const AUTH_ERROR_ES: Record<string, string> = {
   'User already registered':
     'Este correo electrónico ya está registrado. Intenta iniciar sesión.',
@@ -27,8 +26,6 @@ const AUTH_ERROR_ES: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
-  let authUserId: string | null = null;
-
   try {
     const body = await request.json();
     const { email, password, nombres, apellidos, cedulaUnica, cedulaTipo, acceptedTerms } = body;
@@ -44,6 +41,25 @@ export async function POST(request: Request) {
       );
     }
 
+    const cedulaNorm = cedulaUnica.trim();
+
+    // ── Verificar cédula única antes de crear el auth user ───────────────────
+    const { data: existingCedula } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('cedula_unica', cedulaNorm)
+      .not('cedula_unica', 'like', 'TEMP_%')
+      .maybeSingle();
+
+    if (existingCedula) {
+      return NextResponse.json(
+        { error: 'Ese número de documento ya está registrado en otra cuenta.' },
+        { status: 409 }
+      );
+    }
+
+    // ── Crear usuario en Supabase Auth ───────────────────────────────────────
+    // El trigger handle_new_user → setup_new_user crea el perfil y categorías
     const cookieStore = cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -68,7 +84,7 @@ export async function POST(request: Request) {
           nombres,
           apellidos,
           full_name:    `${nombres.trim()} ${apellidos.trim()}`,
-          cedula_unica: cedulaUnica,
+          cedula_unica: cedulaNorm,
           cedula_tipo:  cedulaTipo,
         },
       },
@@ -83,67 +99,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No se pudo crear el usuario.' }, { status: 500 });
     }
 
-    authUserId = authData.user.id;
+    // ── Actualizar accepted_terms_at en el perfil creado por el trigger ──────
+    // El trigger crea el perfil con datos básicos; aquí completamos los campos
+    // de términos y legales que no vienen del metadata de auth.
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-    // ── Crear / validar perfil vía función de BD ──────────────────────────────
-    const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
-      'register_user_profile',
-      {
-        p_user_id:           authUserId,
-        p_email:             email,
-        p_nombres:           nombres,
-        p_apellidos:         apellidos,
-        p_cedula_unica:      cedulaUnica,
-        p_cedula_tipo:       cedulaTipo,
-        p_accepted_terms_at: new Date().toISOString(),
-        p_terms_version:     '1.0',
-      }
-    );
-
-    if (rpcError) {
-      console.error('[register] RPC register_user_profile error:', rpcError);
-
-      // Fallback: inserción directa si la función falla por permisos/configuración
-      const { error: directError } = await supabaseAdmin.from('profiles').upsert({
-        id:                authUserId,
-        email:             email.trim().toLowerCase(),
+    const { error: termsError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        accepted_terms_at: new Date().toISOString(),
+        terms_version:     '1.0',
+        cedula_unica:      cedulaNorm,
+        cedula_tipo:       cedulaTipo,
         nombres:           nombres.trim(),
         apellidos:         apellidos.trim(),
         full_name:         `${nombres.trim()} ${apellidos.trim()}`,
-        cedula_unica:      cedulaUnica.trim(),
-        cedula_tipo:       cedulaTipo,
-        accepted_terms_at: new Date().toISOString(),
-        terms_version:     '1.0',
-      }, { onConflict: 'id' });
+      })
+      .eq('id', authData.user.id);
 
-      if (directError) {
-        console.error('[register] Fallback upsert error:', directError);
-        await supabaseAdmin.auth.admin.deleteUser(authUserId);
-        return NextResponse.json(
-          { error: 'Error al crear el perfil. Intenta de nuevo.' },
-          { status: 500 }
-        );
-      }
-
-      // Fallback exitoso — continuar normalmente
-      return NextResponse.json({
-        success:    true,
-        hasSession: !!authData.session,
-        user:       authData.user,
-      });
+    if (termsError) {
+      console.error('[register] No se pudo actualizar términos en el perfil:', termsError);
     }
 
-    const result = rpcResult as { success?: boolean; error?: string; message?: string };
-
-    if (result?.error) {
-      console.error('[register] Business error from RPC:', result);
-      await supabaseAdmin.auth.admin.deleteUser(authUserId);
-      const status = result.error === 'cedula_taken' ? 409 : 500;
-      return NextResponse.json({ error: result.message }, { status });
-    }
-
-    // hasSession: true → confirmación desactivada, usuario ya autenticado
-    // hasSession: false → confirmación activa, debe verificar email
     return NextResponse.json({
       success:    true,
       hasSession: !!authData.session,
@@ -151,11 +128,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
-    console.error('[register] Unexpected error:', error);
-    // Revertir auth user si fue creado antes del error
-    if (authUserId) {
-      await supabaseAdmin.auth.admin.deleteUser(authUserId).catch(() => {});
-    }
+    console.error('[register] Error inesperado:', error);
     return NextResponse.json({ error: error.message || 'Error interno del servidor.' }, { status: 500 });
   }
 }
