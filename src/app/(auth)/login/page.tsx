@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Lock, Mail, ShieldCheck, Eye, EyeOff, XCircle, CheckCircle2 } from 'lucide-react';
@@ -41,7 +41,7 @@ const INFO_MESSAGES: Record<string, string> = {
   verifica_email: '¡Registro exitoso! Revisa tu bandeja de entrada y confirma tu correo electrónico para poder ingresar.',
 };
 
-export default function LoginPage() {
+function LoginForm() {
   const router       = useRouter();
   const searchParams = useSearchParams();
 
@@ -234,5 +234,13 @@ export default function LoginPage() {
       </div>
       <LegalFooter />
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }
