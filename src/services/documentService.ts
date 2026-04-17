@@ -1,14 +1,11 @@
 // @ts-nocheck
 import {
-  Document,
   DocumentUploadPayload,
   StorageQuotaInfo,
   UploadResult,
   PlanType,
 } from '@/types';
 import { processFile } from '@/utils/fileValidation';
-
-const SIGNED_URL_EXPIRY = 15 * 60; // 15 minutos
 
 export async function getStorageQuota(_userId: string): Promise<StorageQuotaInfo> {
   try {
