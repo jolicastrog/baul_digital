@@ -217,40 +217,39 @@ export interface PlanDetails {
 export const PLAN_DETAILS: Record<PlanType, PlanDetails> = {
   [PlanType.FREE]: {
     plan_type: PlanType.FREE,
-    storage_quota_bytes: 20 * 1024 * 1024, // 20MB
+    storage_quota_bytes: 20 * 1024 * 1024,   // 20 MB — igual que plans.storage_bytes
     max_file_size_mb: 2,
     monthly_price_cop: 0,
     yearly_price_cop: 0,
-    features: ['Almacenamiento básico', 'Hasta 5 categorías', 'Alertas de vencimiento'],
+    features: ['Almacenamiento cifrado', 'Categorías por defecto', 'Alertas de vencimiento'],
   },
   [PlanType.PREMIUM]: {
     plan_type: PlanType.PREMIUM,
-    storage_quota_bytes: 2 * 1024 * 1024 * 1024, // 2GB
+    storage_quota_bytes: 500 * 1024 * 1024,  // 500 MB — igual que plans.storage_bytes
     max_file_size_mb: 10,
-    monthly_price_cop: 19900,
-    yearly_price_cop: 199000,
+    monthly_price_cop: 9900,
+    yearly_price_cop: 7425,
     features: [
-      'Almacenamiento mejorado',
-      'Categorías ilimitadas',
-      'Alertas de vencimiento',
-      'Descarga por lotes',
-      'Sin anuncios',
+      'Todo lo del plan gratuito',
+      'Alertas por correo electrónico',
+      'Categorías personalizadas ilimitadas',
+      'Compartir documentos con familia',
+      'Soporte prioritario',
     ],
   },
   [PlanType.ENTERPRISE]: {
     plan_type: PlanType.ENTERPRISE,
-    storage_quota_bytes: 10 * 1024 * 1024 * 1024, // 10GB
+    storage_quota_bytes: 5 * 1024 * 1024 * 1024, // 5 GB — igual que plans.storage_bytes
     max_file_size_mb: 50,
-    monthly_price_cop: 79900,
-    yearly_price_cop: 799000,
+    monthly_price_cop: 49900,
+    yearly_price_cop: 37425,
     features: [
-      'Almacenamiento empresarial',
-      'Categorías ilimitadas',
-      'Alertas avanzadas',
-      'Acceso compartido',
-      'Sin anuncios',
-      'Soporte prioritario',
+      'Todo lo del plan Premium',
+      'Usuarios y roles ilimitados',
+      'Panel de administrador',
+      'Alertas por correo y SMS',
       'API de integración',
+      'Soporte dedicado 24/7',
     ],
   },
 };

@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { PlanType } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
-const PRICES: Record<PlanType, Record<string, number>> = {
-  [PlanType.FREE]:       { monthly: 0,     semiannual: 0,     annual: 0 },
-  [PlanType.PREMIUM]:    { monthly: 9900,  semiannual: 8415,  annual: 7425 },
-  [PlanType.ENTERPRISE]: { monthly: 49900, semiannual: 42415, annual: 37425 },
-};
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-const PLAN_LABELS: Record<PlanType, string> = {
-  [PlanType.FREE]:       'Plan Gratuito',
-  [PlanType.PREMIUM]:    'Plan Premium',
-  [PlanType.ENTERPRISE]: 'Plan Empresarial',
+const CYCLE_LABELS: Record<string, string> = {
+  monthly:    'Mensual',
+  semiannual: 'Semestral',
+  annual:     'Anual',
 };
 
 export async function POST(request: NextRequest) {
@@ -47,26 +47,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Plan inválido' }, { status: 400 });
     }
 
-    const unitPrice = PRICES[planType]?.[billingCycle];
+    // Leer precio directamente desde la tabla plans (fuente de verdad en BD)
+    const { data: plan, error: planError } = await supabaseAdmin
+      .from('plans')
+      .select('name, price_monthly_cop, price_semiannual_cop, price_annual_cop')
+      .eq('code', planType)
+      .eq('is_active', true)
+      .single();
+
+    if (planError || !plan) {
+      return NextResponse.json({ error: 'Plan no encontrado' }, { status: 400 });
+    }
+
+    const priceMap: Record<string, number> = {
+      monthly:    plan.price_monthly_cop,
+      semiannual: plan.price_semiannual_cop,
+      annual:     plan.price_annual_cop,
+    };
+
+    const unitPrice = priceMap[billingCycle];
     if (!unitPrice) {
-      return NextResponse.json({ error: 'Precio no encontrado' }, { status: 400 });
+      return NextResponse.json({ error: 'Ciclo de facturación inválido' }, { status: 400 });
     }
 
     const mp = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN! });
     const preference = new Preference(mp);
-
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://baul-digital.vercel.app';
 
     const result = await preference.create({
       body: {
         items: [{
           id:          `${planType}-${billingCycle}`,
-          title:       `${PLAN_LABELS[planType]} — ${billingCycle === 'monthly' ? 'Mensual' : billingCycle === 'semiannual' ? 'Semestral' : 'Anual'}`,
+          title:       `${plan.name} — ${CYCLE_LABELS[billingCycle]}`,
           unit_price:  unitPrice,
           quantity:    1,
           currency_id: 'COP',
         }],
-        payer: { email: user.email },
+        payer:              { email: user.email },
         external_reference: `${planType}|${billingCycle}|${user.id}`,
         notification_url:   `${appUrl}/api/webhooks/mercadopago`,
         back_urls: {

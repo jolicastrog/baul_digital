@@ -58,16 +58,16 @@ export async function GET(_request: Request) {
 
     const profile = profileResult.data;
 
-    // Obtener límite de documentos del plan
-    const planLimitResult = profile
+    // Obtener límite de documentos desde la tabla plans (fuente de verdad)
+    const planResult = profile
       ? await supabaseAdmin
-          .from('plan_limits')
-          .select('max_documents')
-          .eq('plan_type', profile.plan_type)
+          .from('plans')
+          .select('max_documents, max_file_size_mb')
+          .eq('code', profile.plan_type)
           .single()
       : null;
 
-    const maxDocuments: number | null = planLimitResult?.data?.max_documents ?? null;
+    const maxDocuments: number | null = planResult?.data?.max_documents ?? null;
 
     const quota = profile
       ? {
