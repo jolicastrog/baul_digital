@@ -150,24 +150,25 @@ function PeriodLabel({ cycle }: { cycle: BillingCycle }) {
   return <>/mes <span className="text-xs text-slate-500">(cobro anual)</span></>;
 }
 
+const IS_DEV = process.env.NEXT_PUBLIC_APP_ENV !== 'production';
+
 export default function PricingPage() {
   const [currentPlan, setCurrentPlan] = useState<PlanType>('free');
   const [billing, setBilling]         = useState<BillingCycle>('monthly');
   const [openFaq, setOpenFaq]         = useState<number | null>(null);
   const [loadingPlan, setLoadingPlan] = useState<PlanType | null>(null);
-  const [paymentMsg, setPaymentMsg]   = useState<string | null>(null);
+  const [paymentMsg, setPaymentMsg]   = useState<{ text: string; ok: boolean } | null>(null);
 
   useEffect(() => {
     fetch('/api/auth/me')
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.profile?.plan_type) setCurrentPlan(d.profile.plan_type); });
 
-    // Mostrar resultado de pago si viene de MercadoPago
     const params = new URLSearchParams(window.location.search);
     const payment = params.get('payment');
-    if (payment === 'success') setPaymentMsg('¡Pago aprobado! Tu plan será actualizado en breve.');
-    if (payment === 'failed')  setPaymentMsg('El pago no fue procesado. Intenta de nuevo.');
-    if (payment === 'pending') setPaymentMsg('Tu pago está pendiente de confirmación.');
+    if (payment === 'success') setPaymentMsg({ text: '¡Pago aprobado! Tu plan será actualizado en breve.', ok: true });
+    if (payment === 'failed')  setPaymentMsg({ text: 'El pago no fue procesado. Intenta de nuevo.', ok: false });
+    if (payment === 'pending') setPaymentMsg({ text: 'Tu pago está pendiente de confirmación.', ok: false });
   }, []);
 
   const handleCheckout = async (planId: PlanType) => {
@@ -182,7 +183,29 @@ export default function PricingPage() {
       if (!res.ok) throw new Error(data.error);
       window.location.href = data.initPoint;
     } catch (err: any) {
-      setPaymentMsg(err.message || 'Error al iniciar el pago. Intenta de nuevo.');
+      setPaymentMsg({ text: err.message || 'Error al iniciar el pago.', ok: false });
+      setLoadingPlan(null);
+    }
+  };
+
+  const handleSimulate = async (planId: PlanType) => {
+    setLoadingPlan(planId);
+    try {
+      const res = await fetch('/api/payments/simulate', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ planType: planId, billingCycle: billing }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setPaymentMsg({ text: `✓ Pago simulado. ID: ${data.transactionId}`, ok: true });
+      // Refrescar plan actual
+      fetch('/api/auth/me').then(r => r.json()).then(d => {
+        if (d?.profile?.plan_type) setCurrentPlan(d.profile.plan_type);
+      });
+    } catch (err: any) {
+      setPaymentMsg({ text: err.message || 'Error en simulación.', ok: false });
+    } finally {
       setLoadingPlan(null);
     }
   };
@@ -198,9 +221,17 @@ export default function PricingPage() {
 
       {paymentMsg && (
         <div className={`p-4 rounded-xl text-sm font-medium text-center ${
-          paymentMsg.includes('aprobado') ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+          paymentMsg.ok
+            ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+            : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
         }`}>
-          {paymentMsg}
+          {paymentMsg.text}
+        </div>
+      )}
+
+      {IS_DEV && (
+        <div className="p-3 rounded-xl border border-yellow-500/30 bg-yellow-500/5 text-yellow-400 text-xs text-center">
+          Modo desarrollo — los botones "Simular pago" activan el plan sin pasar por MercadoPago
         </div>
       )}
 
@@ -321,6 +352,17 @@ export default function PricingPage() {
                   : plan.available ? 'Contratar'
                   : 'Próximamente'}
               </button>
+
+              {/* Botón de simulación — solo en desarrollo */}
+              {IS_DEV && plan.available && !isCurrent && (
+                <button
+                  disabled={loadingPlan === plan.id}
+                  onClick={() => handleSimulate(plan.id)}
+                  className="w-full py-1.5 rounded-xl text-xs font-medium border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 transition-all disabled:opacity-50 mt-1"
+                >
+                  {loadingPlan === plan.id ? 'Simulando...' : 'Simular pago (dev)'}
+                </button>
+              )}
             </div>
           );
         })}
