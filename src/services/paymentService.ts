@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { PaymentGateway, PaymentStatus, PlanType } from '@/types';
+import { PaymentGateway, PlanType } from '@/types';
 import crypto from 'crypto';
 
 const supabaseAdmin = createClient(
@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 
 // ============================================================================
 // VALIDACIÓN WEBHOOK MERCADOPAGO
-// El header x-signature tiene formato: ts=<timestamp>,v1=<hmac>
+// Header x-signature formato: ts=<timestamp>,v1=<hmac>
 // ============================================================================
 
 export function validateMercadoPagoSignature(
@@ -33,25 +33,7 @@ export function validateMercadoPagoSignature(
 }
 
 // ============================================================================
-// HELPERS
-// ============================================================================
-
-function getStorageQuotaByPlan(planType: PlanType): number {
-  const quotas: Record<PlanType, number> = {
-    [PlanType.FREE]:       20 * 1024 * 1024,
-    [PlanType.PREMIUM]:   500 * 1024 * 1024,
-    [PlanType.ENTERPRISE]: 5  * 1024 * 1024 * 1024,
-  };
-  return quotas[planType];
-}
-
-export async function getUserByEmail(email: string): Promise<{ id: string } | null> {
-  const { data } = await supabaseAdmin.from('profiles').select('id').eq('email', email).single();
-  return data;
-}
-
-// ============================================================================
-// PROCESAMIENTO DE PAGOS
+// PROCESAMIENTO DE PAGOS — delega toda la lógica a funciones de BD
 // ============================================================================
 
 export async function processApprovedPayment(
@@ -63,54 +45,21 @@ export async function processApprovedPayment(
   billingCycle: 'monthly' | 'semiannual' | 'annual',
   payload: Record<string, any>
 ): Promise<boolean> {
-  try {
-    await supabaseAdmin.from('payment_webhooks').insert({
-      user_id:         userId,
-      transaction_id:  transactionId,
-      payment_gateway: gateway,
-      amount,
-      currency:        'COP',
-      status:          PaymentStatus.APPROVED,
-      plan_type:       planType,
-      webhook_payload: payload,
-      processed_at:    new Date().toISOString(),
-    });
+  const { error } = await supabaseAdmin.rpc('process_approved_payment', {
+    p_user_id:        userId,
+    p_transaction_id: transactionId,
+    p_gateway:        gateway,
+    p_plan_type:      planType,
+    p_amount:         amount,
+    p_billing_cycle:  billingCycle,
+    p_payload:        payload,
+  });
 
-    const storageQuota = getStorageQuotaByPlan(planType);
-    await supabaseAdmin.from('profiles').update({
-      plan_type:           planType,
-      storage_quota_bytes: storageQuota,
-      updated_at:          new Date().toISOString(),
-    }).eq('id', userId);
-
-    const periodMonths = billingCycle === 'annual' ? 12 : billingCycle === 'semiannual' ? 6 : 1;
-    const periodEnd = new Date();
-    periodEnd.setMonth(periodEnd.getMonth() + periodMonths);
-
-    await supabaseAdmin.from('subscriptions').upsert({
-      user_id:               userId,
-      plan_type:             planType,
-      storage_quota_bytes:   storageQuota,
-      billing_cycle:         billingCycle === 'monthly' ? 'monthly' : 'yearly',
-      current_period_start:  new Date().toISOString(),
-      current_period_end:    periodEnd.toISOString(),
-      is_active:             true,
-      updated_at:            new Date().toISOString(),
-    }, { onConflict: 'user_id' });
-
-    await supabaseAdmin.from('audit_logs').insert({
-      user_id:       userId,
-      action:        'PAYMENT_APPROVED',
-      resource_type: 'subscription',
-      resource_id:   userId,
-      details:       { transaction_id: transactionId, gateway, plan_type: planType, amount },
-    });
-
-    return true;
-  } catch (error) {
-    console.error('[paymentService] processApprovedPayment error:', error);
+  if (error) {
+    console.error('[paymentService] process_approved_payment error:', error);
     return false;
   }
+  return true;
 }
 
 export async function processFailedPayment(
@@ -120,31 +69,22 @@ export async function processFailedPayment(
   amount: number,
   payload: Record<string, any>
 ): Promise<boolean> {
-  try {
-    await supabaseAdmin.from('payment_webhooks').insert({
-      user_id:         userId,
-      transaction_id:  transactionId,
-      payment_gateway: gateway,
-      amount,
-      currency:        'COP',
-      status:          PaymentStatus.FAILED,
-      webhook_payload: payload,
-      processed_at:    new Date().toISOString(),
-    });
+  const { error } = await supabaseAdmin.rpc('process_failed_payment', {
+    p_user_id:        userId,
+    p_transaction_id: transactionId,
+    p_gateway:        gateway,
+    p_amount:         amount,
+    p_payload:        payload,
+  });
 
-    if (userId) {
-      await supabaseAdmin.from('audit_logs').insert({
-        user_id:       userId,
-        action:        'PAYMENT_FAILED',
-        resource_type: 'subscription',
-        resource_id:   userId,
-        details:       { transaction_id: transactionId, gateway, amount },
-      });
-    }
-
-    return true;
-  } catch (error) {
-    console.error('[paymentService] processFailedPayment error:', error);
+  if (error) {
+    console.error('[paymentService] process_failed_payment error:', error);
     return false;
   }
+  return true;
+}
+
+export async function getUserByEmail(email: string): Promise<{ id: string } | null> {
+  const { data } = await supabaseAdmin.from('profiles').select('id').eq('email', email).single();
+  return data;
 }
