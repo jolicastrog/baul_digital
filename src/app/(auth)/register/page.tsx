@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Lock, Mail, ShieldCheck, User, Fingerprint, Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react';
+import { Turnstile } from '@marsidev/react-turnstile';
+import type { TurnstileInstance } from '@marsidev/react-turnstile';
 import LegalFooter from '@/components/LegalFooter';
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
@@ -30,15 +32,17 @@ interface FormErrors {
 }
 
 // ── Validaciones por tipo de documento ─────────────────────────────────────
+// Regla unificada: alfanumérico, mínimo 3 caracteres, máximo según tipo.
+// El máximo mayor es 20 (PA/PEP/PPT) — coincide con el constraint de la BD.
 const CEDULA_RULES: Record<CedulaTipo, { pattern: RegExp; msg: string; placeholder: string; maxLen: number; inputMode: 'numeric' | 'text' }> = {
-  CC:  { pattern: /^\d{5,10}$/,           msg: 'Solo números, entre 5 y 10 dígitos',             placeholder: 'Ej. 79790374',   maxLen: 10, inputMode: 'numeric' },
-  TI:  { pattern: /^\d{10}$/,             msg: 'Solo números, exactamente 10 dígitos',            placeholder: 'Ej. 1020304050', maxLen: 10, inputMode: 'numeric' },
-  RC:  { pattern: /^\d{8,11}$/,           msg: 'Solo números, entre 8 y 11 dígitos',              placeholder: 'Ej. 12345678',   maxLen: 11, inputMode: 'numeric' },
-  CE:  { pattern: /^[A-Za-z0-9]{4,15}$/,  msg: 'Alfanumérico, entre 4 y 15 caracteres',          placeholder: 'Ej. 123456AB',   maxLen: 15, inputMode: 'text' },
-  PA:  { pattern: /^[A-Za-z0-9]{5,20}$/,  msg: 'Alfanumérico, entre 5 y 20 caracteres',          placeholder: 'Ej. AB123456',   maxLen: 20, inputMode: 'text' },
-  NIT: { pattern: /^\d{8,11}$/,           msg: 'Solo números, entre 8 y 11 dígitos (sin guión)', placeholder: 'Ej. 9001234567', maxLen: 11, inputMode: 'numeric' },
-  PEP: { pattern: /^[A-Za-z0-9]{4,20}$/,  msg: 'Alfanumérico, entre 4 y 20 caracteres',          placeholder: 'Ej. PEP1234567', maxLen: 20, inputMode: 'text' },
-  PPT: { pattern: /^[A-Za-z0-9]{4,20}$/,  msg: 'Alfanumérico, entre 4 y 20 caracteres',          placeholder: 'Ej. PPT1234567', maxLen: 20, inputMode: 'text' },
+  CC:  { pattern: /^[A-Za-z0-9]{3,10}$/, msg: 'Mínimo 3 caracteres, máximo 10',        placeholder: 'Ej. 79790374',   maxLen: 10, inputMode: 'numeric' },
+  TI:  { pattern: /^[A-Za-z0-9]{3,10}$/, msg: 'Mínimo 3 caracteres, máximo 10',        placeholder: 'Ej. 1020304050', maxLen: 10, inputMode: 'numeric' },
+  RC:  { pattern: /^[A-Za-z0-9]{3,11}$/, msg: 'Mínimo 3 caracteres, máximo 11',        placeholder: 'Ej. 12345678',   maxLen: 11, inputMode: 'numeric' },
+  CE:  { pattern: /^[A-Za-z0-9]{3,15}$/, msg: 'Mínimo 3 caracteres, máximo 15',        placeholder: 'Ej. 123456AB',   maxLen: 15, inputMode: 'text'    },
+  PA:  { pattern: /^[A-Za-z0-9]{3,20}$/, msg: 'Mínimo 3 caracteres, máximo 20',        placeholder: 'Ej. AB123456',   maxLen: 20, inputMode: 'text'    },
+  NIT: { pattern: /^[A-Za-z0-9]{3,11}$/, msg: 'Mínimo 3 caracteres, máximo 11',        placeholder: 'Ej. 9001234567', maxLen: 11, inputMode: 'numeric' },
+  PEP: { pattern: /^[A-Za-z0-9]{3,20}$/, msg: 'Mínimo 3 caracteres, máximo 20',        placeholder: 'Ej. PEP1234567', maxLen: 20, inputMode: 'text'    },
+  PPT: { pattern: /^[A-Za-z0-9]{3,20}$/, msg: 'Mínimo 3 caracteres, máximo 20',        placeholder: 'Ej. PPT1234567', maxLen: 20, inputMode: 'text'    },
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -163,6 +167,9 @@ export default function RegisterPage() {
   const [showConfirm, setShowConfirm]   = useState(false);
   const [acceptTerms, setAcceptTerms]   = useState(false);
   const [termsError, setTermsError]     = useState('');
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaError, setCaptchaError] = useState('');
+  const turnstileRef                    = useRef<TurnstileInstance>(null);
 
   const passwordStrength = getPasswordStrength(formData.password);
 
@@ -204,7 +211,9 @@ export default function RegisterPage() {
     setErrors(allErrors);
     const termsErr = validateAcceptTerms(acceptTerms);
     setTermsError(termsErr);
-    if (Object.keys(allErrors).length > 0 || termsErr) return;
+    const captchaErr = captchaToken ? '' : 'Completa la verificación de seguridad.';
+    setCaptchaError(captchaErr);
+    if (Object.keys(allErrors).length > 0 || termsErr || captchaErr) return;
 
     setLoading(true);
     try {
@@ -219,6 +228,7 @@ export default function RegisterPage() {
           cedulaUnica:   formData.cedulaUnica.trim(),
           cedulaTipo:    formData.cedulaTipo,
           acceptedTerms: true,
+          captchaToken,
         }),
       });
       const data = await res.json();
@@ -234,6 +244,9 @@ export default function RegisterPage() {
     } catch (err: any) {
       setServerError(err.message);
       setLoading(false);
+      // Resetear captcha para que el usuario pueda intentar de nuevo
+      turnstileRef.current?.reset();
+      setCaptchaToken(null);
     }
   };
 
@@ -506,6 +519,24 @@ export default function RegisterPage() {
                 <p className="flex items-center gap-1 text-xs text-red-400 pl-7">
                   <XCircle className="w-3.5 h-3.5 flex-shrink-0" />
                   {termsError}
+                </p>
+              )}
+            </div>
+
+            {/* Verificación CAPTCHA — Cloudflare Turnstile */}
+            <div className="space-y-1">
+              <Turnstile
+                ref={turnstileRef}
+                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                onSuccess={token => { setCaptchaToken(token); setCaptchaError(''); }}
+                onExpire={() => { setCaptchaToken(null); }}
+                onError={() => { setCaptchaToken(null); setCaptchaError('Error en la verificación. Intenta de nuevo.'); }}
+                options={{ theme: 'dark', language: 'es' }}
+              />
+              {captchaError && (
+                <p className="flex items-center gap-1 text-xs text-red-400">
+                  <XCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  {captchaError}
                 </p>
               )}
             </div>

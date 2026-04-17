@@ -25,12 +25,31 @@ const AUTH_ERROR_ES: Record<string, string> = {
     'Por seguridad, solo puedes intentar una vez cada 60 segundos.',
 };
 
+async function verifyCaptcha(token: string, ip?: string): Promise<boolean> {
+  try {
+    const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        secret:   process.env.TURNSTILE_SECRET_KEY,
+        response: token,
+        remoteip: ip,
+      }),
+    });
+    const data = await res.json();
+    return data.success === true;
+  } catch (err) {
+    console.error('[register] Error verificando CAPTCHA:', err);
+    return false;
+  }
+}
+
 export async function POST(request: Request) {
   let authUserId: string | null = null;
 
   try {
     const body = await request.json();
-    const { email, password, nombres, apellidos, cedulaUnica, cedulaTipo, acceptedTerms } = body;
+    const { email, password, nombres, apellidos, cedulaUnica, cedulaTipo, acceptedTerms, captchaToken } = body;
 
     if (!email || !password || !nombres || !apellidos || !cedulaUnica || !cedulaTipo) {
       return NextResponse.json({ error: 'Faltan campos requeridos' }, { status: 400 });
@@ -41,6 +60,16 @@ export async function POST(request: Request) {
         { error: 'Debes aceptar los Términos y la Política de Privacidad para registrarte.' },
         { status: 400 }
       );
+    }
+
+    // ── Verificar CAPTCHA (Cloudflare Turnstile) ─────────────────────────────
+    if (!captchaToken) {
+      return NextResponse.json({ error: 'Completa la verificación de seguridad.' }, { status: 400 });
+    }
+    const ip = request.headers.get('cf-connecting-ip') ?? request.headers.get('x-forwarded-for') ?? undefined;
+    const captchaOk = await verifyCaptcha(captchaToken, ip ?? undefined);
+    if (!captchaOk) {
+      return NextResponse.json({ error: 'Verificación de seguridad inválida. Intenta de nuevo.' }, { status: 400 });
     }
 
     const cedulaNorm = cedulaUnica.trim();
