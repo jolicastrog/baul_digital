@@ -35,14 +35,14 @@ interface FormErrors {
 // Regla unificada: alfanumérico, mínimo 3 caracteres, máximo según tipo.
 // El máximo mayor es 20 (PA/PEP/PPT) — coincide con el constraint de la BD.
 const CEDULA_RULES: Record<CedulaTipo, { pattern: RegExp; msg: string; placeholder: string; maxLen: number; inputMode: 'numeric' | 'text' }> = {
-  CC:  { pattern: /^[A-Za-z0-9]{3,10}$/, msg: 'Mínimo 3 caracteres, máximo 10',        placeholder: 'Ej. 79790374',   maxLen: 10, inputMode: 'numeric' },
-  TI:  { pattern: /^[A-Za-z0-9]{3,10}$/, msg: 'Mínimo 3 caracteres, máximo 10',        placeholder: 'Ej. 1020304050', maxLen: 10, inputMode: 'numeric' },
-  RC:  { pattern: /^[A-Za-z0-9]{3,11}$/, msg: 'Mínimo 3 caracteres, máximo 11',        placeholder: 'Ej. 12345678',   maxLen: 11, inputMode: 'numeric' },
-  CE:  { pattern: /^[A-Za-z0-9]{3,15}$/, msg: 'Mínimo 3 caracteres, máximo 15',        placeholder: 'Ej. 123456AB',   maxLen: 15, inputMode: 'text'    },
-  PA:  { pattern: /^[A-Za-z0-9]{3,20}$/, msg: 'Mínimo 3 caracteres, máximo 20',        placeholder: 'Ej. AB123456',   maxLen: 20, inputMode: 'text'    },
-  NIT: { pattern: /^[A-Za-z0-9]{3,11}$/, msg: 'Mínimo 3 caracteres, máximo 11',        placeholder: 'Ej. 9001234567', maxLen: 11, inputMode: 'numeric' },
-  PEP: { pattern: /^[A-Za-z0-9]{3,20}$/, msg: 'Mínimo 3 caracteres, máximo 20',        placeholder: 'Ej. PEP1234567', maxLen: 20, inputMode: 'text'    },
-  PPT: { pattern: /^[A-Za-z0-9]{3,20}$/, msg: 'Mínimo 3 caracteres, máximo 20',        placeholder: 'Ej. PPT1234567', maxLen: 20, inputMode: 'text'    },
+  CC:  { pattern: /^[A-Za-z0-9]{3,10}$/,       msg: 'Mínimo 3 caracteres, máximo 10',        placeholder: 'Ej. 79790374',    maxLen: 10, inputMode: 'numeric' },
+  TI:  { pattern: /^[A-Za-z0-9]{3,10}$/,       msg: 'Mínimo 3 caracteres, máximo 10',        placeholder: 'Ej. 1020304050',  maxLen: 10, inputMode: 'numeric' },
+  RC:  { pattern: /^[A-Za-z0-9]{3,11}$/,       msg: 'Mínimo 3 caracteres, máximo 11',        placeholder: 'Ej. 12345678',    maxLen: 11, inputMode: 'numeric' },
+  CE:  { pattern: /^[A-Za-z0-9\-]{3,15}$/,     msg: 'Mínimo 3 caracteres, máximo 15',        placeholder: 'Ej. COL-2145',    maxLen: 15, inputMode: 'text'    },
+  PA:  { pattern: /^[A-Za-z0-9\-]{3,20}$/,     msg: 'Mínimo 3 caracteres, máximo 20',        placeholder: 'Ej. AB-123456',   maxLen: 20, inputMode: 'text'    },
+  NIT: { pattern: /^[A-Za-z0-9]{3,11}$/,       msg: 'Mínimo 3 caracteres, máximo 11',        placeholder: 'Ej. 9001234567',  maxLen: 11, inputMode: 'numeric' },
+  PEP: { pattern: /^[A-Za-z0-9\-]{3,20}$/,     msg: 'Mínimo 3 caracteres, máximo 20',        placeholder: 'Ej. PEP-1234567', maxLen: 20, inputMode: 'text'    },
+  PPT: { pattern: /^[A-Za-z0-9\-]{3,20}$/,     msg: 'Mínimo 3 caracteres, máximo 20',        placeholder: 'Ej. PPT-1234567', maxLen: 20, inputMode: 'text'    },
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
