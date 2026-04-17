@@ -223,7 +223,14 @@ export default function RegisterPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al procesar el registro');
-      router.push('/login?msg=verifica_email');
+      // hasSession=true → confirmación desactivada, usuario ya autenticado → ir al dashboard
+      // hasSession=false → confirmación activa → debe verificar email primero
+      if (data.hasSession) {
+        router.push('/dashboard');
+        router.refresh();
+      } else {
+        router.push('/login?msg=verifica_email');
+      }
     } catch (err: any) {
       setServerError(err.message);
       setLoading(false);

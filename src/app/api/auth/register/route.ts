@@ -27,6 +27,8 @@ const AUTH_ERROR_ES: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
+  let authUserId: string | null = null;
+
   try {
     const body = await request.json();
     const { email, password, nombres, apellidos, cedulaUnica, cedulaTipo, acceptedTerms } = body;
@@ -58,8 +60,6 @@ export async function POST(request: Request) {
       }
     );
 
-    // Los datos extra viajan en options.data y el trigger on_auth_user_created
-    // los lee de raw_user_meta_data para insertar el perfil automáticamente.
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -83,12 +83,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No se pudo crear el usuario.' }, { status: 500 });
     }
 
-    // Delegar validación (email único, cédula única) y upsert del perfil
-    // a la función de base de datos — atómico y eficiente.
+    authUserId = authData.user.id;
+
+    // ── Crear / validar perfil vía función de BD ──────────────────────────────
     const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
       'register_user_profile',
       {
-        p_user_id:           authData.user.id,
+        p_user_id:           authUserId,
         p_email:             email,
         p_nombres:           nombres,
         p_apellidos:         apellidos,
@@ -100,28 +101,61 @@ export async function POST(request: Request) {
     );
 
     if (rpcError) {
-      // Error de conexión / permisos con la función en sí
-      console.error('RPC error:', rpcError);
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-      return NextResponse.json(
-        { error: `Error al crear el perfil: ${rpcError.message}` },
-        { status: 500 }
-      );
+      console.error('[register] RPC register_user_profile error:', rpcError);
+
+      // Fallback: inserción directa si la función falla por permisos/configuración
+      const { error: directError } = await supabaseAdmin.from('profiles').upsert({
+        id:                authUserId,
+        email:             email.trim().toLowerCase(),
+        nombres:           nombres.trim(),
+        apellidos:         apellidos.trim(),
+        full_name:         `${nombres.trim()} ${apellidos.trim()}`,
+        cedula_unica:      cedulaUnica.trim(),
+        cedula_tipo:       cedulaTipo,
+        accepted_terms_at: new Date().toISOString(),
+        terms_version:     '1.0',
+      }, { onConflict: 'id' });
+
+      if (directError) {
+        console.error('[register] Fallback upsert error:', directError);
+        await supabaseAdmin.auth.admin.deleteUser(authUserId);
+        return NextResponse.json(
+          { error: 'Error al crear el perfil. Intenta de nuevo.' },
+          { status: 500 }
+        );
+      }
+
+      // Fallback exitoso — continuar normalmente
+      return NextResponse.json({
+        success:    true,
+        hasSession: !!authData.session,
+        user:       authData.user,
+      });
     }
 
     const result = rpcResult as { success?: boolean; error?: string; message?: string };
 
     if (result?.error) {
-      // La función detectó email o cédula duplicados — revertir el usuario de auth
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-
-      const status = result.error === 'email_taken' || result.error === 'cedula_taken' ? 409 : 500;
+      console.error('[register] Business error from RPC:', result);
+      await supabaseAdmin.auth.admin.deleteUser(authUserId);
+      const status = result.error === 'cedula_taken' ? 409 : 500;
       return NextResponse.json({ error: result.message }, { status });
     }
 
-    return NextResponse.json({ success: true, user: authData.user });
+    // hasSession: true → confirmación desactivada, usuario ya autenticado
+    // hasSession: false → confirmación activa, debe verificar email
+    return NextResponse.json({
+      success:    true,
+      hasSession: !!authData.session,
+      user:       authData.user,
+    });
+
   } catch (error: any) {
-    console.error('Register error:', error);
-    return NextResponse.json({ error: error.message || 'Server Error' }, { status: 500 });
+    console.error('[register] Unexpected error:', error);
+    // Revertir auth user si fue creado antes del error
+    if (authUserId) {
+      await supabaseAdmin.auth.admin.deleteUser(authUserId).catch(() => {});
+    }
+    return NextResponse.json({ error: error.message || 'Error interno del servidor.' }, { status: 500 });
   }
 }
