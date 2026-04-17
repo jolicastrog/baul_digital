@@ -24,42 +24,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verificar email único — buscamos en auth.users (incluye usuarios sin confirmar)
-    const { data: authList } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-    const emailLower = email.trim().toLowerCase();
-    const emailTaken = authList?.users?.some(u => u.email?.toLowerCase() === emailLower);
-    if (emailTaken) {
-      return NextResponse.json(
-        { error: 'Este correo electrónico ya está registrado. Intenta iniciar sesión.' },
-        { status: 409 }
-      );
-    }
-
-    // Verificar cédula única — buscamos en auth.users metadata (incluye usuarios sin confirmar)
-    // y también en profiles (usuarios ya confirmados)
-    const cedulaNorm = cedulaUnica.trim();
-    const cedulaTakenInMeta = authList?.users?.some(
-      u => u.user_metadata?.cedula_unica === cedulaNorm
-    );
-    if (cedulaTakenInMeta) {
-      return NextResponse.json(
-        { error: 'Ese número de documento ya está registrado en otra cuenta.' },
-        { status: 409 }
-      );
-    }
-
-    const { data: existingCedula } = await supabaseAdmin
-      .from('profiles')
-      .select('id')
-      .eq('cedula_unica', cedulaNorm)
-      .maybeSingle();
-    if (existingCedula) {
-      return NextResponse.json(
-        { error: 'Ese número de documento ya está registrado en otra cuenta.' },
-        { status: 409 }
-      );
-    }
-
     const cookieStore = cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -96,41 +60,44 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: authError.message }, { status: 400 });
     }
 
-    if (authData.user) {
-      // Upsert manual del perfil: respaldo si el trigger falla + registra consentimiento
-      const { error: upsertError } = await supabaseAdmin
-        .from('profiles')
-        .upsert({
-          id:                authData.user.id,
-          email:             email.trim().toLowerCase(),
-          nombres:           nombres.trim(),
-          apellidos:         apellidos.trim(),
-          full_name:         `${nombres.trim()} ${apellidos.trim()}`,
-          cedula_unica:      cedulaUnica.trim(),
-          cedula_tipo:       cedulaTipo,
-          accepted_terms_at: new Date().toISOString(),
-          terms_version:     '1.0',
-        }, { onConflict: 'id' });
+    if (!authData.user) {
+      return NextResponse.json({ error: 'No se pudo crear el usuario.' }, { status: 500 });
+    }
 
-      if (upsertError) {
-        console.error('Profile upsert error:', upsertError);
-
-        // Revertir: eliminar el usuario de auth para no dejar registros huérfanos
-        await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-
-        // Cédula duplicada
-        if (upsertError.code === '23505') {
-          return NextResponse.json(
-            { error: 'Ese número de documento ya está registrado en otra cuenta.' },
-            { status: 409 }
-          );
-        }
-
-        return NextResponse.json(
-          { error: `Error al crear el perfil: ${upsertError.message}` },
-          { status: 500 }
-        );
+    // Delegar validación (email único, cédula única) y upsert del perfil
+    // a la función de base de datos — atómico y eficiente.
+    const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
+      'register_user_profile',
+      {
+        p_user_id:           authData.user.id,
+        p_email:             email,
+        p_nombres:           nombres,
+        p_apellidos:         apellidos,
+        p_cedula_unica:      cedulaUnica,
+        p_cedula_tipo:       cedulaTipo,
+        p_accepted_terms_at: new Date().toISOString(),
+        p_terms_version:     '1.0',
       }
+    );
+
+    if (rpcError) {
+      // Error de conexión / permisos con la función en sí
+      console.error('RPC error:', rpcError);
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      return NextResponse.json(
+        { error: `Error al crear el perfil: ${rpcError.message}` },
+        { status: 500 }
+      );
+    }
+
+    const result = rpcResult as { success?: boolean; error?: string; message?: string };
+
+    if (result?.error) {
+      // La función detectó email o cédula duplicados — revertir el usuario de auth
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+
+      const status = result.error === 'email_taken' || result.error === 'cedula_taken' ? 409 : 500;
+      return NextResponse.json({ error: result.message }, { status });
     }
 
     return NextResponse.json({ success: true, user: authData.user });

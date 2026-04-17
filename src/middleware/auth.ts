@@ -38,7 +38,18 @@ export async function updateSession(request: NextRequest) {
   );
 
   // Refresca la sesión — IMPORTANTE: no eliminar este llamado
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  // Token de refresco inválido (sesión expirada o cookies corruptas).
+  // Limpiar cookies sb-* y redirigir a login para que el usuario vuelva a autenticarse.
+  if (authError?.code === 'refresh_token_not_found') {
+    const loginUrl = new URL('/login', request.url);
+    const response = NextResponse.redirect(loginUrl);
+    request.cookies.getAll()
+      .filter(c => c.name.startsWith('sb-'))
+      .forEach(c => response.cookies.delete(c.name));
+    return response;
+  }
 
   const isPublicRoute =
     publicRoutes.some((r) => request.nextUrl.pathname.startsWith(r)) ||
