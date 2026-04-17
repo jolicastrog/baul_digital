@@ -26,6 +26,8 @@ const AUTH_ERROR_ES: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
+  let authUserId: string | null = null;
+
   try {
     const body = await request.json();
     const { email, password, nombres, apellidos, cedulaUnica, cedulaTipo, acceptedTerms } = body;
@@ -43,23 +45,32 @@ export async function POST(request: Request) {
 
     const cedulaNorm = cedulaUnica.trim();
 
-    // ── Verificar cédula única antes de crear el auth user ───────────────────
-    const { data: existingCedula } = await supabaseAdmin
-      .from('profiles')
-      .select('id')
-      .eq('cedula_unica', cedulaNorm)
-      .not('cedula_unica', 'like', 'TEMP_%')
-      .maybeSingle();
+    // ── PASO 1: Validar cédula y email en la BD (única fuente de verdad) ──────
+    // validate_registration es una función SECURITY DEFINER que verifica
+    // duplicados en profiles. Si falla o retorna ok=false → rechazar.
+    const { data: validation, error: validationError } = await supabaseAdmin
+      .rpc('validate_registration', {
+        p_cedula: cedulaNorm,
+        p_email:  email.trim().toLowerCase(),
+      });
 
-    if (existingCedula) {
+    if (validationError) {
+      console.error('[register] Error llamando validate_registration:', validationError);
       return NextResponse.json(
-        { error: 'Ese número de documento ya está registrado en otra cuenta.' },
+        { error: 'Error al validar los datos. Intenta de nuevo.' },
+        { status: 500 }
+      );
+    }
+
+    if (!validation?.ok) {
+      return NextResponse.json(
+        { error: validation?.message ?? 'Datos ya registrados.' },
         { status: 409 }
       );
     }
 
-    // ── Crear usuario en Supabase Auth ───────────────────────────────────────
-    // El trigger handle_new_user → setup_new_user crea el perfil y categorías
+    // ── PASO 2: Crear usuario en Supabase Auth ───────────────────────────────
+    // El trigger handle_new_user → setup_new_user crea el perfil y categorías.
     const cookieStore = cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -99,26 +110,48 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No se pudo crear el usuario.' }, { status: 500 });
     }
 
-    // ── Actualizar accepted_terms_at en el perfil creado por el trigger ──────
-    // El trigger crea el perfil con datos básicos; aquí completamos los campos
-    // de términos y legales que no vienen del metadata de auth.
+    authUserId = authData.user.id;
+
+    // ── PASO 3: Verificar que el trigger creó el perfil ───────────────────────
+    // Esperar a que el trigger handle_new_user → setup_new_user termine.
     await new Promise(resolve => setTimeout(resolve, 500));
 
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('id', authUserId)
+      .maybeSingle();
+
+    if (!profile) {
+      // El trigger no creó el perfil — revertir el auth user para no dejar huérfanos
+      console.error('[register] Perfil no encontrado tras signUp, revirtiendo auth user:', authUserId);
+      await supabaseAdmin.auth.admin.deleteUser(authUserId);
+      return NextResponse.json(
+        { error: 'Error al crear el perfil. Intenta de nuevo.' },
+        { status: 500 }
+      );
+    }
+
+    // ── PASO 4: Completar datos del perfil (términos, datos completos) ────────
+    // El trigger crea el perfil con datos básicos del metadata de auth.
+    // Aquí actualizamos accepted_terms_at y nos aseguramos de que los datos
+    // coincidan exactamente con lo que el usuario ingresó en el formulario.
     const { error: termsError } = await supabaseAdmin
       .from('profiles')
       .update({
-        accepted_terms_at: new Date().toISOString(),
-        terms_version:     '1.0',
-        cedula_unica:      cedulaNorm,
-        cedula_tipo:       cedulaTipo,
         nombres:           nombres.trim(),
         apellidos:         apellidos.trim(),
         full_name:         `${nombres.trim()} ${apellidos.trim()}`,
+        cedula_unica:      cedulaNorm,
+        cedula_tipo:       cedulaTipo,
+        accepted_terms_at: new Date().toISOString(),
+        terms_version:     '1.0',
       })
-      .eq('id', authData.user.id);
+      .eq('id', authUserId);
 
     if (termsError) {
-      console.error('[register] No se pudo actualizar términos en el perfil:', termsError);
+      console.error('[register] Error actualizando términos en perfil:', termsError);
+      // No es fatal — el perfil existe, el usuario puede ingresar al sistema
     }
 
     return NextResponse.json({
@@ -129,6 +162,9 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('[register] Error inesperado:', error);
+    if (authUserId) {
+      await supabaseAdmin.auth.admin.deleteUser(authUserId).catch(() => {});
+    }
     return NextResponse.json({ error: error.message || 'Error interno del servidor.' }, { status: 500 });
   }
 }
