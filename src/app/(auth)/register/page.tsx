@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Lock, Mail, ShieldCheck, User, Fingerprint, Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react';
@@ -9,7 +9,13 @@ import type { TurnstileInstance } from '@marsidev/react-turnstile';
 import LegalFooter from '@/components/LegalFooter';
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
-type CedulaTipo = 'CC' | 'TI' | 'RC' | 'CE' | 'PA' | 'NIT' | 'PEP' | 'PPT';
+type CedulaTipo = string;
+
+interface DocumentType {
+  code:          string;
+  name:          string;
+  min_age_years: number | null;
+}
 
 interface FormData {
   email:           string;
@@ -32,18 +38,16 @@ interface FormErrors {
 }
 
 // ── Validaciones por tipo de documento ─────────────────────────────────────
-// Regla unificada: alfanumérico, mínimo 3 caracteres, máximo según tipo.
-// El máximo mayor es 20 (PA/PEP/PPT) — coincide con el constraint de la BD.
-const CEDULA_RULES: Record<CedulaTipo, { pattern: RegExp; msg: string; placeholder: string; maxLen: number; inputMode: 'numeric' | 'text' }> = {
-  CC:  { pattern: /^[A-Za-z0-9]{3,10}$/,       msg: 'Mínimo 3 caracteres, máximo 10',        placeholder: 'Ej. 79790374',    maxLen: 10, inputMode: 'numeric' },
-  TI:  { pattern: /^[A-Za-z0-9]{3,10}$/,       msg: 'Mínimo 3 caracteres, máximo 10',        placeholder: 'Ej. 1020304050',  maxLen: 10, inputMode: 'numeric' },
-  RC:  { pattern: /^[A-Za-z0-9]{3,11}$/,       msg: 'Mínimo 3 caracteres, máximo 11',        placeholder: 'Ej. 12345678',    maxLen: 11, inputMode: 'numeric' },
-  CE:  { pattern: /^[A-Za-z0-9\-]{3,15}$/,     msg: 'Mínimo 3 caracteres, máximo 15',        placeholder: 'Ej. COL-2145',    maxLen: 15, inputMode: 'text'    },
-  PA:  { pattern: /^[A-Za-z0-9\-]{3,20}$/,     msg: 'Mínimo 3 caracteres, máximo 20',        placeholder: 'Ej. AB-123456',   maxLen: 20, inputMode: 'text'    },
-  NIT: { pattern: /^[A-Za-z0-9]{3,11}$/,       msg: 'Mínimo 3 caracteres, máximo 11',        placeholder: 'Ej. 9001234567',  maxLen: 11, inputMode: 'numeric' },
-  PEP: { pattern: /^[A-Za-z0-9\-]{3,20}$/,     msg: 'Mínimo 3 caracteres, máximo 20',        placeholder: 'Ej. PEP-1234567', maxLen: 20, inputMode: 'text'    },
-  PPT: { pattern: /^[A-Za-z0-9\-]{3,20}$/,     msg: 'Mínimo 3 caracteres, máximo 20',        placeholder: 'Ej. PPT-1234567', maxLen: 20, inputMode: 'text'    },
+const CEDULA_RULES: Record<string, { pattern: RegExp; msg: string; placeholder: string; maxLen: number; inputMode: 'numeric' | 'text' }> = {
+  CC:  { pattern: /^[A-Za-z0-9]{3,10}$/,   msg: 'Mínimo 3 caracteres, máximo 10', placeholder: 'Ej. 79790374',    maxLen: 10, inputMode: 'numeric' },
+  TI:  { pattern: /^[A-Za-z0-9]{3,10}$/,   msg: 'Mínimo 3 caracteres, máximo 10', placeholder: 'Ej. 1020304050',  maxLen: 10, inputMode: 'numeric' },
+  CE:  { pattern: /^[A-Za-z0-9\-]{3,15}$/, msg: 'Mínimo 3 caracteres, máximo 15', placeholder: 'Ej. COL-2145',    maxLen: 15, inputMode: 'text'    },
+  PA:  { pattern: /^[A-Za-z0-9\-]{3,20}$/, msg: 'Mínimo 3 caracteres, máximo 20', placeholder: 'Ej. AB-123456',   maxLen: 20, inputMode: 'text'    },
+  NIT: { pattern: /^[A-Za-z0-9]{3,11}$/,   msg: 'Mínimo 3 caracteres, máximo 11', placeholder: 'Ej. 9001234567',  maxLen: 11, inputMode: 'numeric' },
+  PEP: { pattern: /^[A-Za-z0-9\-]{3,20}$/, msg: 'Mínimo 3 caracteres, máximo 20', placeholder: 'Ej. PEP-1234567', maxLen: 20, inputMode: 'text'    },
+  PPT: { pattern: /^[A-Za-z0-9\-]{3,20}$/, msg: 'Mínimo 3 caracteres, máximo 20', placeholder: 'Ej. PPT-1234567', maxLen: 20, inputMode: 'text'    },
 };
+const DEFAULT_RULE = { pattern: /^[A-Za-z0-9\-]{3,20}$/, msg: 'Mínimo 3 caracteres, máximo 20', placeholder: 'Número de documento', maxLen: 20, inputMode: 'text' as const };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -66,7 +70,7 @@ function validateForm(data: FormData): FormErrors {
   }
 
   // Número de documento
-  const rule = CEDULA_RULES[data.cedulaTipo];
+  const rule = CEDULA_RULES[data.cedulaTipo] ?? DEFAULT_RULE;
   if (!data.cedulaUnica.trim()) {
     errors.cedulaUnica = 'El número de documento es obligatorio.';
   } else if (!rule.pattern.test(data.cedulaUnica.trim())) {
@@ -170,6 +174,14 @@ export default function RegisterPage() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaError, setCaptchaError] = useState('');
   const turnstileRef                    = useRef<TurnstileInstance>(null);
+  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
+
+  useEffect(() => {
+    fetch('/api/document-types')
+      .then(r => r.json())
+      .then(d => { if (d.types) setDocumentTypes(d.types); })
+      .catch(() => {});
+  }, []);
 
   const passwordStrength = getPasswordStrength(formData.password);
 
@@ -250,7 +262,7 @@ export default function RegisterPage() {
     }
   };
 
-  const rule = CEDULA_RULES[formData.cedulaTipo];
+  const rule = CEDULA_RULES[formData.cedulaTipo] ?? DEFAULT_RULE;
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center relative overflow-hidden text-slate-200 py-12">
@@ -342,14 +354,24 @@ export default function RegisterPage() {
                   onChange={handleChange}
                   className="block w-full px-4 py-3 bg-slate-950/50 border border-white/10 rounded-xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
                 >
-                  <option value="CC">CC – Cédula Ciudadanía</option>
-                  <option value="TI">TI – Tarjeta Identidad</option>
-                  <option value="RC">RC – Registro Civil</option>
-                  <option value="CE">CE – Cédula Extranjería</option>
-                  <option value="PA">PA – Pasaporte</option>
-                  <option value="NIT">NIT – NIT Empresarial</option>
-                  <option value="PEP">PEP – Perm. Especial</option>
-                  <option value="PPT">PPT – Perm. Protección</option>
+                  {documentTypes.length > 0
+                    ? documentTypes.map(dt => (
+                        <option key={dt.code} value={dt.code}>
+                          {dt.code} – {dt.name}
+                        </option>
+                      ))
+                    : (
+                      // Fallback mientras carga (sin RC)
+                      <>
+                        <option value="CC">CC – Cédula de Ciudadanía</option>
+                        <option value="TI">TI – Tarjeta de Identidad</option>
+                        <option value="CE">CE – Cédula de Extranjería</option>
+                        <option value="PA">PA – Pasaporte</option>
+                        <option value="NIT">NIT – NIT Empresarial</option>
+                        <option value="PEP">PEP – Perm. Especial de Permanencia</option>
+                        <option value="PPT">PPT – Perm. de Protección Temporal</option>
+                      </>
+                    )}
                 </select>
               </div>
 

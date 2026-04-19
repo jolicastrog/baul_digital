@@ -74,6 +74,21 @@ export async function POST(request: Request) {
 
     const cedulaNorm = cedulaUnica.trim();
 
+    // ── PASO 0: Validar que el tipo de documento esté habilitado ─────────────
+    const { data: docType } = await supabaseAdmin
+      .from('document_types')
+      .select('code')
+      .eq('code', cedulaTipo)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (!docType) {
+      return NextResponse.json(
+        { error: 'El tipo de documento seleccionado no está habilitado para registro.' },
+        { status: 400 }
+      );
+    }
+
     // ── PASO 1: Validar cédula y email en la BD (única fuente de verdad) ──────
     // validate_registration es una función SECURITY DEFINER que verifica
     // duplicados en profiles. Si falla o retorna ok=false → rechazar.
