@@ -14,6 +14,11 @@ const publicRoutes = [
  * Middleware de autenticación para Next.js (Edge Runtime).
  * IMPORTANTE: No usar cookies() de next/headers aquí — no está disponible en Edge.
  * Se usa request.cookies y supabaseResponse.cookies en su lugar.
+ *
+ * Rutas /admin/*:
+ *   - Sin sesión   → redirige a /login
+ *   - Sin is_admin → redirige a /dashboard (acceso denegado silencioso)
+ *   - Con is_admin → deja pasar
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -51,11 +56,33 @@ export async function updateSession(request: NextRequest) {
     return response;
   }
 
-  const isPublicRoute =
-    publicRoutes.some((r) => request.nextUrl.pathname.startsWith(r)) ||
-    request.nextUrl.pathname === '/';
+  const { pathname } = request.nextUrl;
 
-  if (!user && !isPublicRoute && !request.nextUrl.pathname.startsWith('/api')) {
+  const isPublicRoute =
+    publicRoutes.some((r) => pathname.startsWith(r)) ||
+    pathname === '/';
+
+  // ── Rutas /admin/* ────────────────────────────────────────────────────────
+  if (pathname.startsWith('/admin')) {
+    if (!user) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.is_admin) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+
+    return supabaseResponse;
+  }
+
+  // ── Rutas protegidas generales ────────────────────────────────────────────
+  if (!user && !isPublicRoute && !pathname.startsWith('/api')) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
