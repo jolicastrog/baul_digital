@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  User, Shield, Lock, HardDrive,
+  User, Shield, Lock, HardDrive, Tag,
   CheckCircle2, AlertCircle, Loader2,
   Eye, EyeOff, XCircle,
 } from 'lucide-react';
+import CategoryManager from '@/components/CategoryManager';
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 type CedulaTipo = 'CC' | 'TI' | 'RC' | 'CE' | 'PA' | 'NIT' | 'PEP' | 'PPT';
@@ -627,6 +628,15 @@ export default function SettingsPage() {
             Cambiar contraseña
           </button>
         </form>
+      </div>
+
+      {/* Gestionar categorías */}
+      <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <Tag className="w-5 h-5 text-blue-400" />
+          <h2 className="font-semibold text-white">Gestionar Categorías</h2>
+        </div>
+        <CategoryManager planType={profile?.plan_type ?? 'free'} />
       </div>
 
       {/* Plan actual */}

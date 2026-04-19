@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, HardDrive, FileText, Clock, AlertCircle, AlertTriangle, ShieldAlert, Trash2, Search, Download, Pencil, Check, X, ChevronDown, Eye } from 'lucide-react';
+import { Plus, HardDrive, FileText, Clock, AlertCircle, AlertTriangle, ShieldAlert, Trash2, Search, Download, Pencil, Check, X, ChevronDown, Eye, FolderInput, Loader2 } from 'lucide-react';
 import { FileUpload } from '@/components/FileUpload';
 import { deleteDocument } from '@/services/documentService';
 
@@ -18,6 +18,15 @@ export default function DashboardPage() {
   const [savingExpiry, setSavingExpiry] = useState(false);
   const [preview, setPreview] = useState<{ url: string; name: string; mimeType: string } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [movingDocId, setMovingDocId] = useState<string | null>(null);
+  const [movingDocLoading, setMovingDocLoading] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!movingDocId) return;
+    const close = () => setMovingDocId(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [movingDocId]);
 
   // Obtener ID del usuario autenticado
   useEffect(() => {
@@ -78,6 +87,23 @@ export default function DashboardPage() {
     }
     setEditingExpiry(null);
     setSavingExpiry(false);
+  };
+
+  const handleMoveDoc = async (docId: string, categoryId: string | null) => {
+    setMovingDocLoading(docId);
+    setMovingDocId(null);
+    const res = await fetch(`/api/documents/${docId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category_id: categoryId }),
+    });
+    if (res.ok) {
+      await fetchDashboardData();
+    } else {
+      const d = await res.json();
+      alert(d.error || 'Error al mover el documento.');
+    }
+    setMovingDocLoading(null);
   };
 
   const getMimeType = (fileName: string): string => {
@@ -471,6 +497,45 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
+                  {/* Mover a — dropdown de categorías */}
+                  <div className="relative">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setMovingDocId(movingDocId === doc.id ? null : doc.id); }}
+                      disabled={movingDocLoading === doc.id}
+                      className="flex items-center px-3 py-2 text-sm font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 rounded-lg transition-colors"
+                      title="Mover a categoría"
+                    >
+                      {movingDocLoading === doc.id
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <FolderInput className="w-4 h-4" />}
+                    </button>
+                    {movingDocId === doc.id && (
+                      <div className="absolute right-0 top-full mt-1 z-20 min-w-[180px] bg-slate-800 border border-white/10 rounded-xl shadow-xl overflow-hidden">
+                        <p className="px-3 pt-2 pb-1 text-xs text-slate-500 font-medium">Mover a...</p>
+                        {categories
+                          .filter((c: any) => c.id !== doc.category_id)
+                          .map((cat: any) => (
+                            <button
+                              key={cat.id}
+                              onClick={() => handleMoveDoc(doc.id, cat.id)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-200 hover:bg-white/5 transition-colors text-left"
+                            >
+                              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color_code ?? '#475569' }} />
+                              {cat.name}
+                            </button>
+                          ))}
+                        {doc.category_id && (
+                          <button
+                            onClick={() => handleMoveDoc(doc.id, null)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-400 hover:bg-white/5 transition-colors text-left border-t border-white/5"
+                          >
+                            Sin categoría
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   <button
                     onClick={() => handleOpen(doc.id, doc.file_name)}
                     disabled={previewLoading}

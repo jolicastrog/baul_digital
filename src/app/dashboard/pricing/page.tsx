@@ -85,7 +85,7 @@ const PLANS: Plan[] = [
     features: [
       'Todo lo del plan gratuito',
       'Alertas por correo electrónico',
-      'Categorías personalizadas ilimitadas',
+      'Hasta 25 categorías personalizadas',
       'Compartir documentos con familia',
       'Soporte prioritario',
     ],
@@ -390,7 +390,7 @@ export default function PricingPage() {
                 ['Alertas en pantalla',     '✓',            '✓',            '✓'],
                 ['Alertas por email',        '—',            '✓',            '✓'],
                 ['Alertas por SMS',          '—',            '—',            '✓'],
-                ['Categorías personalizadas','6 fijas',      'Ilimitadas',   'Ilimitadas'],
+                ['Categorías',              '6 por defecto', 'Hasta 25',    'Ilimitadas'],
                 ['Compartir documentos',    '—',            '✓',            '✓'],
                 ['Panel de administrador',  '—',            '—',            '✓'],
                 ['Soporte',                 'Comunidad',    'Prioritario',  '24/7 dedicado'],

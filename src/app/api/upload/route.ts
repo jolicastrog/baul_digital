@@ -73,7 +73,21 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    // 2. Obtener nombre de categoría para el path
+    // 2. Verificar nombre de archivo duplicado para este usuario
+    const { data: existing } = await supabaseAdmin
+      .from('documents')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('file_name', file.name)
+      .maybeSingle();
+
+    if (existing) {
+      return NextResponse.json({
+        error: `Ya tienes un archivo con el nombre "${file.name}". Renómbralo antes de subir o elimina el existente.`
+      }, { status: 409 });
+    }
+
+    // 3. Obtener nombre de categoría para el path
     let categoryName = 'Otros';
     if (categoryId) {
       const { data: cat } = await supabaseAdmin
@@ -84,7 +98,7 @@ export async function POST(request: Request) {
       if (cat) categoryName = cat.name;
     }
 
-    // 3. Generar ruta: {userId}/{categoria}/{uuid}.ext
+    // 4. Generar ruta: {userId}/{categoria}/{uuid}.ext
     // Normalizar categoría: quitar tildes y caracteres especiales
     const safeCategoryName = categoryName
       .normalize('NFD')
