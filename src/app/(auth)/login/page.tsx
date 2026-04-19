@@ -108,7 +108,8 @@ function LoginForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Credenciales incorrectas. Verifica tu correo y contraseña.');
-      router.push('/dashboard');
+      const redirectTo = searchParams.get('redirectTo');
+      router.push(redirectTo && redirectTo.startsWith('/') ? redirectTo : '/dashboard');
       router.refresh();
     } catch (err: any) {
       setServerError(err.message);
