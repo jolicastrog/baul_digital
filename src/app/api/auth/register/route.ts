@@ -116,10 +116,12 @@ export async function POST(request: Request) {
       }
     );
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo: `${appUrl}/auth/confirm`,
         data: {
           nombres,
           apellidos,
