@@ -231,7 +231,7 @@ export default function PricingPage() {
 
       {IS_DEV && (
         <div className="p-3 rounded-xl border border-yellow-500/30 bg-yellow-500/5 text-yellow-400 text-xs text-center">
-          Modo desarrollo — los botones "Simular pago" activan el plan sin pasar por MercadoPago
+          Modo desarrollo — los botones "Simular pago" activan el plan sin pasar por Bold
         </div>
       )}
 

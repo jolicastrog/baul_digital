@@ -194,14 +194,13 @@ export interface DocumentUploadPayload {
   access_level?: DocumentAccessLevel;
 }
 
-export interface MercadoPagoPreferenceRequest {
+export interface BoldPaymentRequest {
   planType: PlanType;
   billingCycle: 'monthly' | 'semiannual' | 'annual';
 }
 
-export interface MercadoPagoPreferenceResponse {
-  preferenceId: string;
-  initPoint: string;
+export interface BoldPaymentResponse {
+  paymentUrl: string;
 }
 
 export interface PlanDetails {
