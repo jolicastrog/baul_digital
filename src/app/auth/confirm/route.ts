@@ -7,8 +7,10 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const token_hash = searchParams.get('token_hash');
   const type       = searchParams.get('type') as EmailOtpType | null;
+  const code       = searchParams.get('code');
 
-  if (!token_hash || !type) {
+  // Sin ningún parámetro válido → enlace inválido
+  if (!token_hash && !code) {
     return NextResponse.redirect(
       new URL('/login?error=enlace_invalido', request.url)
     );
@@ -30,12 +32,35 @@ export async function GET(request: NextRequest) {
     }
   );
 
-  const { error } = await supabase.auth.verifyOtp({ token_hash, type });
+  // Flujo PKCE (Supabase moderno): el link llega con ?code=xxx
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      console.error('[auth/confirm] PKCE error:', error.message);
+      return NextResponse.redirect(
+        new URL('/login?error=confirmacion_fallida', request.url)
+      );
+    }
+    // Para recovery via PKCE, el type viene en el redirectTo original
+    const isRecovery = type === 'recovery' || searchParams.get('next') === '/reset-password';
+    return NextResponse.redirect(
+      new URL(isRecovery ? '/reset-password' : '/login?msg=confirmado', request.url)
+    );
+  }
+
+  // Flujo OTP clásico: token_hash + type
+  if (!type) {
+    return NextResponse.redirect(
+      new URL('/login?error=enlace_invalido', request.url)
+    );
+  }
+
+  const { error } = await supabase.auth.verifyOtp({ token_hash: token_hash!, type });
 
   if (error) {
-    console.error('Email confirm error:', error.message);
+    console.error('[auth/confirm] OTP error:', error.message);
     return NextResponse.redirect(
-      new URL(`/login?error=confirmacion_fallida`, request.url)
+      new URL('/login?error=confirmacion_fallida', request.url)
     );
   }
 
