@@ -3,17 +3,35 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock, ShieldCheck, XCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { createBrowserClient } from '@supabase/ssr';
 import LegalFooter from '@/components/LegalFooter';
+
+function getPasswordStrength(password: string): { label: string; color: string; width: string } {
+  if (!password) return { label: '', color: '', width: '0%' };
+  let score = 0;
+  if (password.length >= 8)           score++;
+  if (password.length >= 12)          score++;
+  if (/[A-Z]/.test(password))         score++;
+  if (/[0-9]/.test(password))         score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+  if (score <= 2) return { label: 'Débil',  color: 'bg-red-500',    width: '33%'  };
+  if (score <= 3) return { label: 'Media',  color: 'bg-yellow-500', width: '66%'  };
+  return             { label: 'Fuerte', color: 'bg-emerald-500', width: '100%' };
+}
 
 export default function ResetPasswordPage() {
   const router = useRouter();
 
-  const [password,  setPassword]  = useState('');
-  const [confirm,   setConfirm]   = useState('');
-  const [showPass,  setShowPass]  = useState(false);
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState('');
-  const [success,   setSuccess]   = useState(false);
+  const [password, setPassword]  = useState('');
+  const [confirm,  setConfirm]   = useState('');
+  const [showPass, setShowPass]  = useState(false);
+  const [loading,  setLoading]   = useState(false);
+  const [error,    setError]     = useState('');
+  const [success,  setSuccess]   = useState(false);
+
+  const strength      = getPasswordStrength(password);
+  const passwordsMatch = confirm.length > 0 && password === confirm;
+  const passwordsMismatch = confirm.length > 0 && password !== confirm;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,17 +48,24 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/reset-password', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ password }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Error al cambiar la contraseña.');
+      // Usar cliente browser — la sesión ya está activa desde /auth/confirm
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      const { error: updateError } = await supabase.auth.updateUser({ password });
+
+      if (updateError) {
+        console.error('[reset-password]', updateError.message);
+        setError('No se pudo actualizar la contraseña. El enlace puede haber expirado.');
+        return;
+      }
+
       setSuccess(true);
       setTimeout(() => router.push('/dashboard'), 2500);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message ?? 'Error interno.');
     } finally {
       setLoading(false);
     }
@@ -77,6 +102,8 @@ export default function ResetPasswordPage() {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+
+                {/* Nueva contraseña */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-1.5">
                     Nueva contraseña <span className="text-red-400">*</span>
@@ -104,8 +131,29 @@ export default function ResetPasswordPage() {
                       {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+
+                  {/* Barra de fortaleza */}
+                  {password && (
+                    <div className="mt-2">
+                      <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${strength.color}`}
+                          style={{ width: strength.width }}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Fortaleza:{' '}
+                        <span className={
+                          strength.label === 'Fuerte' ? 'text-emerald-400' :
+                          strength.label === 'Media'  ? 'text-yellow-400'  : 'text-red-400'
+                        }>{strength.label}</span>
+                        <span className="ml-2 text-slate-600">· Usa mayúsculas, números y símbolos</span>
+                      </p>
+                    </div>
+                  )}
                 </div>
 
+                {/* Confirmar contraseña */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-1.5">
                     Confirmar contraseña <span className="text-red-400">*</span>
@@ -119,12 +167,36 @@ export default function ResetPasswordPage() {
                       value={confirm}
                       onChange={e => setConfirm(e.target.value)}
                       maxLength={72}
-                      className="block w-full pl-11 pr-4 py-3 bg-slate-950/50 border border-white/10 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      className={`block w-full pl-11 pr-11 py-3 bg-slate-950/50 border rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 transition-all
+                        ${passwordsMismatch
+                          ? 'border-red-500/60 focus:ring-red-500/40'
+                          : passwordsMatch
+                            ? 'border-emerald-500/60 focus:ring-emerald-500/40'
+                            : 'border-white/10 focus:ring-blue-500 focus:border-transparent'}`}
                       placeholder="Repite la contraseña"
                       autoComplete="new-password"
                       required
                     />
+                    {confirm.length > 0 && (
+                      <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                        {passwordsMatch
+                          ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          : <XCircle className="w-4 h-4 text-red-400" />}
+                      </div>
+                    )}
                   </div>
+                  {passwordsMismatch && (
+                    <p className="mt-1.5 flex items-center gap-1 text-xs text-red-400">
+                      <XCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      Las contraseñas no coinciden.
+                    </p>
+                  )}
+                  {passwordsMatch && (
+                    <p className="mt-1.5 flex items-center gap-1 text-xs text-emerald-400">
+                      <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                      Las contraseñas coinciden.
+                    </p>
+                  )}
                 </div>
 
                 <button
