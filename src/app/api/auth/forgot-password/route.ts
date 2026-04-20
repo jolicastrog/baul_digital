@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
     // Siempre responder con éxito para no revelar si el correo existe
     await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-      redirectTo: `${appUrl}/auth/confirm?type=recovery&next=/reset-password`,
+      redirectTo: `${appUrl}/reset-password`,
     });
 
     return NextResponse.json({ success: true });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock, ShieldCheck, XCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { createBrowserClient } from '@supabase/ssr';
@@ -20,18 +20,60 @@ function getPasswordStrength(password: string): { label: string; color: string; 
 }
 
 export default function ResetPasswordPage() {
-  const router = useRouter();
+  const router     = useRouter();
+  const supabase   = useRef(createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  ));
 
-  const [password, setPassword]  = useState('');
-  const [confirm,  setConfirm]   = useState('');
-  const [showPass, setShowPass]  = useState(false);
-  const [loading,  setLoading]   = useState(false);
-  const [error,    setError]     = useState('');
-  const [success,  setSuccess]   = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+  const [password,     setPassword]     = useState('');
+  const [confirm,      setConfirm]      = useState('');
+  const [showPass,     setShowPass]     = useState(false);
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState('');
+  const [success,      setSuccess]      = useState(false);
 
-  const strength      = getPasswordStrength(password);
-  const passwordsMatch = confirm.length > 0 && password === confirm;
+  const strength         = getPasswordStrength(password);
+  const passwordsMatch   = confirm.length > 0 && password === confirm;
   const passwordsMismatch = confirm.length > 0 && password !== confirm;
+
+  // Establece la sesión desde el fragmento (#access_token=...) o verifica sesión existente
+  useEffect(() => {
+    async function initSession() {
+      const hash       = window.location.hash.substring(1);
+      const hashParams = new URLSearchParams(hash);
+      const at   = hashParams.get('access_token');
+      const rt   = hashParams.get('refresh_token');
+      const type = hashParams.get('type');
+
+      if (at && rt && type === 'recovery') {
+        const { error } = await supabase.current.auth.setSession({
+          access_token:  at,
+          refresh_token: rt,
+        });
+        if (error) {
+          setError('Sesión de recuperación inválida. Solicita un nuevo enlace.');
+        } else {
+          // Limpiar el hash de la URL para no exponer los tokens
+          window.history.replaceState(null, '', window.location.pathname);
+          setSessionReady(true);
+        }
+        return;
+      }
+
+      // Si no hay hash, verificar si ya hay sesión activa (ej: navegación directa)
+      const { data: { session } } = await supabase.current.auth.getSession();
+      if (session) {
+        setSessionReady(true);
+      } else {
+        setError('No hay una sesión de recuperación activa. Solicita un nuevo enlace desde "¿Olvidaste tu contraseña?".');
+      }
+    }
+
+    initSession();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,17 +90,11 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
     try {
-      // Usar cliente browser — la sesión ya está activa desde /auth/confirm
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-
-      const { error: updateError } = await supabase.auth.updateUser({ password });
+      const { error: updateError } = await supabase.current.auth.updateUser({ password });
 
       if (updateError) {
         console.error('[reset-password]', updateError.message);
-        setError('No se pudo actualizar la contraseña. El enlace puede haber expirado.');
+        setError('No se pudo actualizar la contraseña. ' + updateError.message);
         return;
       }
 
@@ -92,6 +128,24 @@ export default function ResetPasswordPage() {
               <p className="text-white font-semibold text-lg">¡Contraseña actualizada!</p>
               <p className="text-slate-400 text-sm">Redirigiendo a tu dashboard…</p>
             </div>
+
+          ) : !sessionReady && error ? (
+            // Sin sesión válida — mostrar error con enlace para reintentar
+            <div className="text-center py-4 space-y-4">
+              <XCircle className="w-14 h-14 text-red-400 mx-auto" />
+              <p className="text-white font-semibold">Enlace inválido o expirado</p>
+              <p className="text-slate-400 text-sm">{error}</p>
+              <a href="/forgot-password" className="inline-block mt-2 text-sm text-blue-400 hover:text-blue-300 transition-colors font-medium">
+                Solicitar nuevo enlace
+              </a>
+            </div>
+
+          ) : !sessionReady ? (
+            // Cargando sesión
+            <div className="text-center py-8">
+              <p className="text-slate-400 animate-pulse">Verificando sesión…</p>
+            </div>
+
           ) : (
             <>
               {error && (
