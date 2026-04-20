@@ -174,14 +174,14 @@ export default function PricingPage() {
   const handleCheckout = async (planId: PlanType) => {
     setLoadingPlan(planId);
     try {
-      const res = await fetch('/api/payments/create-preference', {
+      const res = await fetch('/api/payments/create-bold-link', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ planType: planId, billingCycle: billing }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      window.location.href = data.initPoint;
+      window.location.href = data.paymentUrl;
     } catch (err: any) {
       setPaymentMsg({ text: err.message || 'Error al iniciar el pago.', ok: false });
       setLoadingPlan(null);

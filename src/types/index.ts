@@ -27,6 +27,7 @@ export enum AlertStatus {
 
 export enum PaymentGateway {
   MERCADOPAGO = 'mercadopago',
+  BOLD        = 'bold',
 }
 
 export enum PaymentStatus {
