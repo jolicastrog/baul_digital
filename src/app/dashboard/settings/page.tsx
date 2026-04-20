@@ -10,7 +10,9 @@ import {
 import CategoryManager from '@/components/CategoryManager';
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
-type CedulaTipo = 'CC' | 'TI' | 'RC' | 'CE' | 'PA' | 'NIT' | 'PEP' | 'PPT';
+type CedulaTipo = string;
+
+interface DocumentType { code: string; name: string; }
 
 type Profile = {
   id:                  string;
@@ -27,10 +29,9 @@ type Profile = {
 };
 
 // ── Constantes ─────────────────────────────────────────────────────────────
-const CEDULA_TIPOS: { value: CedulaTipo; label: string }[] = [
+const CEDULA_TIPOS_FALLBACK: { value: string; label: string }[] = [
   { value: 'CC',  label: 'CC – Cédula Ciudadanía' },
   { value: 'TI',  label: 'TI – Tarjeta Identidad' },
-  { value: 'RC',  label: 'RC – Registro Civil' },
   { value: 'CE',  label: 'CE – Cédula Extranjería' },
   { value: 'PA',  label: 'PA – Pasaporte' },
   { value: 'NIT', label: 'NIT – NIT Empresarial' },
@@ -94,9 +95,10 @@ function inputCls(error?: string) {
 
 // ── Página ─────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const [profile,   setProfile]   = useState<Profile | null>(null);
-  const [loading,   setLoading]   = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [profile,       setProfile]       = useState<Profile | null>(null);
+  const [loading,       setLoading]       = useState(true);
+  const [loadError,     setLoadError]     = useState<string | null>(null);
+  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
 
   // Formulario perfil
   const [nombres,     setNombres]     = useState('');
@@ -120,6 +122,13 @@ export default function SettingsPage() {
   const [passwordTouched, setPasswordTouched] = useState<Record<string, boolean>>({});
   const [savingPassword,  setSavingPassword]  = useState(false);
   const [passwordMsg,     setPasswordMsg]     = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // ── Carga tipos de documento activos ────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/document-types')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.types?.length) setDocumentTypes(d.types); });
+  }, []);
 
   // ── Carga inicial ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -446,7 +455,10 @@ export default function SettingsPage() {
                 onChange={e => handleCedulaTipoChange(e.target.value as CedulaTipo)}
                 className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm"
               >
-                {CEDULA_TIPOS.map(t => (
+                {(documentTypes.length
+                  ? documentTypes.map(dt => ({ value: dt.code, label: `${dt.code} – ${dt.name}` }))
+                  : CEDULA_TIPOS_FALLBACK
+                ).map(t => (
                   <option key={t.value} value={t.value}>{t.value}</option>
                 ))}
               </select>
