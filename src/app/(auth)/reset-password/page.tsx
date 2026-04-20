@@ -19,6 +19,12 @@ function getPasswordStrength(password: string): { label: string; color: string; 
   return             { label: 'Fuerte', color: 'bg-emerald-500', width: '100%' };
 }
 
+const SUPABASE_ERROR_ES: Record<string, string> = {
+  'New password should be different from the old password.': 'La nueva contraseña debe ser diferente a la contraseña actual.',
+  'Password should be at least 6 characters.': 'La contraseña debe tener al menos 6 caracteres.',
+  'Auth session missing!': 'Sesión expirada. Solicita un nuevo enlace de recuperación.',
+};
+
 export default function ResetPasswordPage() {
   const router     = useRouter();
   const supabase   = useRef(createBrowserClient(
@@ -94,7 +100,7 @@ export default function ResetPasswordPage() {
 
       if (updateError) {
         console.error('[reset-password]', updateError.message);
-        setError('No se pudo actualizar la contraseña. ' + updateError.message);
+        setError(SUPABASE_ERROR_ES[updateError.message] ?? 'No se pudo actualizar la contraseña. Intenta de nuevo.');
         return;
       }
 

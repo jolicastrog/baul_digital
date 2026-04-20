@@ -597,7 +597,12 @@ export default function SettingsPage() {
                 onBlur={() => handlePasswordBlur('confirmPassword', confirmPassword)}
                 maxLength={72}
                 placeholder="Repite la contraseña"
-                className={`${inputCls(passwordTouched.confirmPassword ? passwordErrors.confirmPassword : undefined)} pr-11`}
+                className={`block w-full pl-4 pr-11 py-3 bg-slate-950/50 border rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 transition-all
+                  ${confirmPassword && newPassword === confirmPassword
+                    ? 'border-emerald-500/60 focus:ring-emerald-500/40'
+                    : confirmPassword && newPassword !== confirmPassword
+                      ? 'border-red-500/60 focus:ring-red-500/40'
+                      : 'border-white/10 focus:ring-blue-500 focus:border-transparent'}`}
                 autoComplete="new-password"
               />
               <button
@@ -608,13 +613,26 @@ export default function SettingsPage() {
               >
                 {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
-              {confirmPassword && newPassword === confirmPassword && (
-                <div className="absolute inset-y-0 right-10 flex items-center pr-1">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              {confirmPassword && (
+                <div className="absolute inset-y-0 right-10 flex items-center pr-1 pointer-events-none">
+                  {newPassword === confirmPassword
+                    ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    : <XCircle className="w-4 h-4 text-red-400" />}
                 </div>
               )}
             </div>
-            <FieldError msg={passwordTouched.confirmPassword ? passwordErrors.confirmPassword : undefined} />
+            {confirmPassword && newPassword === confirmPassword && (
+              <p className="mt-1.5 flex items-center gap-1 text-xs text-emerald-400">
+                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                Las contraseñas coinciden.
+              </p>
+            )}
+            {confirmPassword && newPassword !== confirmPassword && (
+              <p className="mt-1.5 flex items-center gap-1 text-xs text-red-400">
+                <XCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                Las contraseñas no coinciden.
+              </p>
+            )}
           </div>
 
           {/* Mensaje resultado */}
