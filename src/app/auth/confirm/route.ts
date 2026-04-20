@@ -39,6 +39,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Confirmación exitosa → redirigir al login con mensaje de éxito
+  // Recovery → sesión ya activa, ir a página de nueva contraseña
+  if (type === 'recovery') {
+    return NextResponse.redirect(new URL('/reset-password', request.url));
+  }
+
+  // Confirmación de registro exitosa
   return NextResponse.redirect(new URL('/login?msg=confirmado', request.url));
 }

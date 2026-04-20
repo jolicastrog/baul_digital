@@ -182,7 +182,7 @@ function LoginForm() {
                   Contraseña <span className="text-red-400">*</span>
                 </label>
                 <Link
-                  href="#"
+                  href="/forgot-password"
                   className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
                   tabIndex={-1}
                 >
