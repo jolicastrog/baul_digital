@@ -283,7 +283,7 @@ export default function RegisterPage() {
         router.push('/dashboard');
         router.refresh();
       } else {
-        router.push('/login?msg=verifica_email');
+        router.push(`/login?msg=verifica_email&email=${encodeURIComponent(formData.email.trim())}`);
       }
     } catch (err: any) {
       setServerError(err.message);

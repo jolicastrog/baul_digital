@@ -51,17 +51,22 @@ function LoginForm() {
   const [touched,  setTouched]  = useState({ email: false, password: false });
   const [showPass, setShowPass] = useState(false);
   const [loading,  setLoading]  = useState(false);
-  const [serverError,       setServerError]       = useState('');
-  const [infoMsg,           setInfoMsg]           = useState('');
-  const [emailNotConfirmed, setEmailNotConfirmed] = useState(false);
-  const [resendLoading,     setResendLoading]     = useState(false);
-  const [resendMsg,         setResendMsg]         = useState<{ text: string; ok: boolean } | null>(null);
+  const [serverError,        setServerError]        = useState('');
+  const [infoMsg,            setInfoMsg]            = useState('');
+  const [verifyEmailMode,    setVerifyEmailMode]    = useState(false);
+  const [emailNotConfirmed,  setEmailNotConfirmed]  = useState(false);
+  const [resendLoading,      setResendLoading]      = useState(false);
+  const [resendMsg,          setResendMsg]          = useState<{ text: string; ok: boolean } | null>(null);
 
   useEffect(() => {
     const err = searchParams.get('error');
     if (err && ERROR_MESSAGES[err]) setServerError(ERROR_MESSAGES[err]);
     const msg = searchParams.get('msg');
     if (msg && INFO_MESSAGES[msg]) setInfoMsg(INFO_MESSAGES[msg]);
+    if (msg === 'verifica_email') setVerifyEmailMode(true);
+    // Pre-llenar email cuando viene del registro
+    const emailParam = searchParams.get('email');
+    if (emailParam) setEmail(decodeURIComponent(emailParam));
   }, [searchParams]);
 
   const validateEmail = (val: string): string | undefined => {
@@ -165,8 +170,43 @@ function LoginForm() {
         </div>
 
         <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 p-6 sm:p-8 rounded-3xl shadow-2xl">
-          {/* Mensaje de éxito (ej. email confirmado) */}
-          {infoMsg && (
+          {/* Registro exitoso — bloque con guía de confirmación */}
+          {verifyEmailMode && (
+            <div className="mb-6 rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0 text-emerald-400" />
+                <p className="text-sm font-semibold text-emerald-400">
+                  ¡Registro exitoso! Revisa tu bandeja de entrada y confirma tu correo para ingresar.
+                </p>
+              </div>
+              <ul className="text-xs text-emerald-300/80 space-y-1.5 pl-6 list-disc leading-relaxed">
+                <li>Revisa también la carpeta de <span className="font-medium text-emerald-300">spam o correo no deseado</span>.</li>
+                <li>Si en <span className="font-medium text-emerald-300">5 minutos</span> no llega, usa el botón de abajo para reenviar el enlace.</li>
+                <li>Si definitivamente no llega, espera <span className="font-medium text-emerald-300">24 horas</span> e intenta registrarte con un <span className="font-medium text-emerald-300">correo diferente</span>.</li>
+              </ul>
+              {resendMsg ? (
+                <p className={`text-xs font-medium flex items-center gap-1.5 ${resendMsg.ok ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {resendMsg.ok
+                    ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                    : <XCircle className="w-3.5 h-3.5 flex-shrink-0" />}
+                  {resendMsg.text}
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendLoading || !email}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${resendLoading ? 'animate-spin' : ''}`} />
+                  {resendLoading ? 'Enviando...' : 'Reenviar enlace de confirmación'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Mensaje simple (ej. correo ya confirmado) */}
+          {infoMsg && !verifyEmailMode && (
             <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium flex items-start gap-2">
               <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
               {infoMsg}
