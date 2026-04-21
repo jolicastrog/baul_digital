@@ -462,7 +462,7 @@ export default function SettingsPage() {
       </header>
 
       {/* Resumen de cuenta */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6 flex items-center gap-5">
+      <div className="bg-slate-900 border border-white/5 rounded-2xl p-6 flex items-center gap-5">
         <div className="w-16 h-16 rounded-2xl bg-blue-600/20 border border-blue-500/20 flex items-center justify-center text-2xl font-bold text-blue-400 uppercase flex-shrink-0">
           {(profile?.nombres ?? profile?.full_name ?? profile?.email ?? 'U')[0]}
         </div>
@@ -480,7 +480,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Almacenamiento */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6 space-y-3">
+      <div className="bg-slate-900 border border-white/5 rounded-2xl p-6 space-y-3">
         <div className="flex items-center gap-2 mb-1">
           <HardDrive className="w-5 h-5 text-blue-400" />
           <h2 className="font-semibold text-white">Almacenamiento</h2>
@@ -501,7 +501,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Datos personales */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6">
+      <div className="bg-slate-900 border border-white/5 rounded-2xl p-6">
         <div className="flex items-center gap-2 mb-5">
           <User className="w-5 h-5 text-blue-400" />
           <h2 className="font-semibold text-white">Datos Personales</h2>
@@ -660,7 +660,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Cambiar contraseña */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6">
+      <div className="bg-slate-900 border border-white/5 rounded-2xl p-6">
         <div className="flex items-center gap-2 mb-5">
           <Lock className="w-5 h-5 text-blue-400" />
           <h2 className="font-semibold text-white">Cambiar Contraseña</h2>
@@ -785,7 +785,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Gestionar categorías */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6">
+      <div className="bg-slate-900 border border-white/5 rounded-2xl p-6">
         <div className="flex items-center gap-2 mb-5">
           <Tag className="w-5 h-5 text-blue-400" />
           <h2 className="font-semibold text-white">Gestionar Categorías</h2>
@@ -794,7 +794,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Plan actual */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6">
+      <div className="bg-slate-900 border border-white/5 rounded-2xl p-6">
         <div className="flex items-center gap-2 mb-4">
           <Shield className="w-5 h-5 text-blue-400" />
           <h2 className="font-semibold text-white">Plan Actual</h2>
@@ -819,7 +819,7 @@ export default function SettingsPage() {
 
       {/* Suscripción — solo premium / enterprise */}
       {profile?.plan_type !== 'free' && (
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6">
+        <div className="bg-slate-900 border border-white/5 rounded-2xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <CreditCard className="w-5 h-5 text-blue-400" />
             <h2 className="font-semibold text-white">Suscripción</h2>
@@ -881,7 +881,7 @@ export default function SettingsPage() {
       )}
 
       {/* Exportar documentos */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6">
+      <div className="bg-slate-900 border border-white/5 rounded-2xl p-6">
         <div className="flex items-center gap-2 mb-4">
           <Download className="w-5 h-5 text-blue-400" />
           <h2 className="font-semibold text-white">Exportar Mis Documentos</h2>
@@ -919,7 +919,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Zona de peligro — cierre de cuenta */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-red-500/10 rounded-2xl p-6">
+      <div className="bg-slate-900 border border-red-500/10 rounded-2xl p-6">
         <div className="flex items-center gap-2 mb-4">
           <Trash2 className="w-5 h-5 text-red-400" />
           <h2 className="font-semibold text-red-400">Zona de Peligro</h2>
