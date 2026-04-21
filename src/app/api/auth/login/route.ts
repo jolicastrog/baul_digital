@@ -42,6 +42,9 @@ export async function POST(request: Request) {
 
     if (error) {
       const msg = LOGIN_ERROR_ES[error.message] ?? 'Error al iniciar sesión. Intenta de nuevo.';
+      if (error.message === 'Email not confirmed') {
+        return NextResponse.json({ error: msg, code: 'email_not_confirmed' }, { status: 401 });
+      }
       return NextResponse.json({ error: msg }, { status: 401 });
     }
 

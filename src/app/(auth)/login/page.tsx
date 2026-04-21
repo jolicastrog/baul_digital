@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Lock, Mail, ShieldCheck, Eye, EyeOff, XCircle, CheckCircle2 } from 'lucide-react';
+import { Lock, Mail, ShieldCheck, Eye, EyeOff, XCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 import LegalFooter from '@/components/LegalFooter';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -51,8 +51,11 @@ function LoginForm() {
   const [touched,  setTouched]  = useState({ email: false, password: false });
   const [showPass, setShowPass] = useState(false);
   const [loading,  setLoading]  = useState(false);
-  const [serverError, setServerError] = useState('');
-  const [infoMsg,     setInfoMsg]     = useState('');
+  const [serverError,       setServerError]       = useState('');
+  const [infoMsg,           setInfoMsg]           = useState('');
+  const [emailNotConfirmed, setEmailNotConfirmed] = useState(false);
+  const [resendLoading,     setResendLoading]     = useState(false);
+  const [resendMsg,         setResendMsg]         = useState<{ text: string; ok: boolean } | null>(null);
 
   useEffect(() => {
     const err = searchParams.get('error');
@@ -89,9 +92,33 @@ function LoginForm() {
     if (field === 'password') setErrors(p => ({ ...p, password: validatePassword(password) }));
   };
 
+  const handleResend = async () => {
+    setResendLoading(true);
+    setResendMsg(null);
+    try {
+      const res = await fetch('/api/auth/resend-confirmation', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: email.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResendMsg({ text: data.error || 'No se pudo reenviar. Intenta de nuevo.', ok: false });
+      } else {
+        setResendMsg({ text: '¡Enlace reenviado! Revisa tu bandeja de entrada (y la carpeta de spam).', ok: true });
+      }
+    } catch {
+      setResendMsg({ text: 'Error de conexión. Intenta de nuevo.', ok: false });
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError('');
+    setEmailNotConfirmed(false);
+    setResendMsg(null);
 
     const emailErr    = validateEmail(email);
     const passwordErr = validatePassword(password);
@@ -107,7 +134,12 @@ function LoginForm() {
         body:    JSON.stringify({ email: email.trim(), password }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Credenciales incorrectas. Verifica tu correo y contraseña.');
+      if (!res.ok) {
+        if (data.code === 'email_not_confirmed') {
+          setEmailNotConfirmed(true);
+        }
+        throw new Error(data.error || 'Credenciales incorrectas. Verifica tu correo y contraseña.');
+      }
       const redirectTo = searchParams.get('redirectTo');
       router.push(redirectTo && redirectTo.startsWith('/') ? redirectTo : '/dashboard');
       router.refresh();
@@ -143,9 +175,36 @@ function LoginForm() {
 
           {/* Error del servidor */}
           {serverError && (
-            <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium flex items-start gap-2">
+            <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium flex items-start gap-2">
               <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
               {serverError}
+            </div>
+          )}
+
+          {/* Reenviar confirmación */}
+          {emailNotConfirmed && (
+            <div className="mb-6 rounded-xl bg-amber-500/10 border border-amber-500/20 p-4 space-y-3">
+              <p className="text-xs text-amber-300">
+                ¿No encuentras el correo de confirmación? Revisa también la carpeta de spam.
+              </p>
+              {resendMsg ? (
+                <p className={`text-xs font-medium flex items-center gap-1.5 ${resendMsg.ok ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {resendMsg.ok
+                    ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                    : <XCircle className="w-3.5 h-3.5 flex-shrink-0" />}
+                  {resendMsg.text}
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendLoading || !email}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-300 hover:text-amber-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${resendLoading ? 'animate-spin' : ''}`} />
+                  {resendLoading ? 'Enviando...' : 'Reenviar enlace de confirmación'}
+                </button>
+              )}
             </div>
           )}
 

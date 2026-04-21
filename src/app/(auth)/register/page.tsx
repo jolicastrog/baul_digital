@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Lock, Mail, ShieldCheck, User, Fingerprint, Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react';
+import { Lock, Mail, ShieldCheck, User, Fingerprint, Eye, EyeOff, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
 import type { TurnstileInstance } from '@marsidev/react-turnstile';
 import LegalFooter from '@/components/LegalFooter';
@@ -165,8 +165,11 @@ export default function RegisterPage() {
 
   const [errors, setErrors]             = useState<FormErrors>({});
   const [touched, setTouched]           = useState<Partial<Record<keyof FormData, boolean>>>({});
-  const [loading, setLoading]           = useState(false);
-  const [serverError, setServerError]   = useState('');
+  const [loading, setLoading]                 = useState(false);
+  const [serverError, setServerError]         = useState('');
+  const [emailUnconfirmed, setEmailUnconfirmed] = useState(false);
+  const [resendLoading, setResendLoading]     = useState(false);
+  const [resendMsg, setResendMsg]             = useState<{ text: string; ok: boolean } | null>(null);
   const [showPass, setShowPass]         = useState(false);
   const [showConfirm, setShowConfirm]   = useState(false);
   const [acceptTerms, setAcceptTerms]   = useState(false);
@@ -208,9 +211,33 @@ export default function RegisterPage() {
     setErrors(prev => ({ ...prev, [field]: newErrors[field as keyof FormErrors] }));
   };
 
+  const handleResend = async () => {
+    setResendLoading(true);
+    setResendMsg(null);
+    try {
+      const res = await fetch('/api/auth/resend-confirmation', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: formData.email.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResendMsg({ text: data.error || 'No se pudo reenviar. Intenta de nuevo.', ok: false });
+      } else {
+        setResendMsg({ text: '¡Enlace reenviado! Revisa tu bandeja de entrada (y la carpeta de spam).', ok: true });
+      }
+    } catch {
+      setResendMsg({ text: 'Error de conexión. Intenta de nuevo.', ok: false });
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError('');
+    setEmailUnconfirmed(false);
+    setResendMsg(null);
 
     // Marcar todos como tocados y validar
     const allTouched = Object.keys(formData).reduce(
@@ -244,7 +271,12 @@ export default function RegisterPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Error al procesar el registro');
+      if (!res.ok) {
+        if (data.code === 'email_unconfirmed') {
+          setEmailUnconfirmed(true);
+        }
+        throw new Error(data.error || 'Error al procesar el registro');
+      }
       // hasSession=true → confirmación desactivada, usuario ya autenticado → ir al dashboard
       // hasSession=false → confirmación activa → debe verificar email primero
       if (data.hasSession) {
@@ -281,10 +313,41 @@ export default function RegisterPage() {
 
         <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 p-6 sm:p-8 rounded-3xl shadow-2xl">
           {/* Error del servidor */}
-          {serverError && (
+          {serverError && !emailUnconfirmed && (
             <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium flex items-start gap-2">
               <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
               {serverError}
+            </div>
+          )}
+
+          {/* Email registrado pero sin confirmar */}
+          {emailUnconfirmed && (
+            <div className="mb-6 rounded-xl bg-amber-500/10 border border-amber-500/20 p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-400" />
+                <p className="text-sm font-medium text-amber-300">{serverError}</p>
+              </div>
+              <p className="text-xs text-amber-300/80">
+                ¿No encuentras el correo de confirmación? Revisa la carpeta de spam o reenvía el enlace.
+              </p>
+              {resendMsg ? (
+                <p className={`text-xs font-medium flex items-center gap-1.5 ${resendMsg.ok ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {resendMsg.ok
+                    ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                    : <XCircle className="w-3.5 h-3.5 flex-shrink-0" />}
+                  {resendMsg.text}
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendLoading}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-300 hover:text-amber-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${resendLoading ? 'animate-spin' : ''}`} />
+                  {resendLoading ? 'Enviando...' : 'Reenviar enlace de confirmación'}
+                </button>
+              )}
             </div>
           )}
 

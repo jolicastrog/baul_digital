@@ -107,10 +107,16 @@ export async function POST(request: Request) {
     }
 
     if (!validation?.ok) {
-      return NextResponse.json(
-        { error: validation?.message ?? 'Datos ya registrados.' },
-        { status: 409 }
-      );
+      // Detect if the email exists but was never confirmed — offer resend instead of a dead-end error
+      const { data: isUnconfirmed } = await supabaseAdmin
+        .rpc('check_unconfirmed_email', { p_email: email.trim().toLowerCase() });
+
+      const code = isUnconfirmed ? 'email_unconfirmed' : undefined;
+      const msg  = isUnconfirmed
+        ? 'Este correo ya está registrado pero pendiente de confirmación. Revisa tu bandeja de entrada o reenvía el enlace.'
+        : (validation?.message ?? 'Datos ya registrados.');
+
+      return NextResponse.json({ error: msg, ...(code && { code }) }, { status: 409 });
     }
 
     // ── PASO 2: Crear usuario en Supabase Auth ───────────────────────────────
