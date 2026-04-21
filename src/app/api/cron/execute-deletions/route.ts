@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { sendEmail } from '@/lib/email/sendEmail';
+import { deletionConfirmedHtml } from '@/lib/email/templates';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +48,14 @@ export async function POST(request: Request) {
           continue;
         }
 
+        // Obtener nombre antes de borrar (el perfil aún existe aquí)
+        const { data: profile } = await supabaseAdmin
+          .from('profiles')
+          .select('full_name')
+          .eq('id', row.user_id)
+          .single();
+        const fullName = profile?.full_name ?? row.user_email;
+
         // Paso 2: eliminar de auth.users via Admin SDK (dispara cascade → trigger archive)
         const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(row.user_id);
 
@@ -55,13 +65,14 @@ export async function POST(request: Request) {
           continue;
         }
 
-        // Registrar email de confirmación de eliminación
-        void supabaseAdmin.from('email_logs').insert({
-          user_id:   null,
-          recipient: row.user_email,
-          template:  'deletion_confirmed',
-          subject:   'Tu cuenta en Baúl Digital ha sido eliminada',
-          metadata:  { executed_by: 'cron', user_id: row.user_id },
+        // Enviar email de confirmación de eliminación
+        void sendEmail({
+          to:       row.user_email,
+          subject:  'Tu cuenta en Baúl Digital ha sido eliminada',
+          html:     deletionConfirmedHtml({ fullName, email: row.user_email }),
+          template: 'deletion_confirmed',
+          userId:   null,
+          metadata: { executed_by: 'cron', user_id: row.user_id },
         });
 
         results.push({ user_id: row.user_id, status: 'deleted' });

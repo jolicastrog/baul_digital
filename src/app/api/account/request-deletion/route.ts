@@ -3,6 +3,8 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { getRequestMeta } from '@/lib/utils/requestMeta';
+import { sendEmail } from '@/lib/email/sendEmail';
+import { deletionWarningHtml } from '@/lib/email/templates';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -59,13 +61,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: result.error }, { status });
     }
 
-    // Registrar email de aviso en email_logs
-    void supabaseAdmin.from('email_logs').insert({
-      user_id:   user.id,
-      recipient: user.email,
-      template:  'deletion_warning',
-      subject:   'Solicitud de cierre de cuenta recibida — Baúl Digital',
-      metadata:  { scheduled_for: result.scheduled_for, days_remaining: result.days_remaining },
+    // Obtener nombre del perfil para el email
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+
+    const fullName     = profile?.full_name ?? user.email ?? 'Usuario';
+    const scheduledFor = new Date(result.scheduled_for!).toLocaleDateString('es-CO', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    });
+
+    void sendEmail({
+      to:       user.email!,
+      subject:  'Solicitud de cierre de cuenta recibida — Baúl Digital',
+      html:     deletionWarningHtml({ fullName, scheduledFor, daysRemaining: result.days_remaining! }),
+      template: 'deletion_warning',
+      userId:   user.id,
+      metadata: { scheduled_for: result.scheduled_for, days_remaining: result.days_remaining },
     });
 
     return NextResponse.json({

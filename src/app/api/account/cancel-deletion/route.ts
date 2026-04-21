@@ -3,6 +3,8 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { getRequestMeta } from '@/lib/utils/requestMeta';
+import { sendEmail } from '@/lib/email/sendEmail';
+import { deletionCancelledHtml } from '@/lib/email/templates';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -55,13 +57,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: result.error }, { status });
     }
 
-    // Registrar email de confirmación de cancelación
-    void supabaseAdmin.from('email_logs').insert({
-      user_id:   user.id,
-      recipient: user.email,
-      template:  'deletion_cancelled',
-      subject:   'Tu solicitud de cierre de cuenta ha sido cancelada — Baúl Digital',
-      metadata:  { cancelled_by: 'user' },
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+
+    void sendEmail({
+      to:       user.email!,
+      subject:  'Tu solicitud de cierre de cuenta ha sido cancelada — Baúl Digital',
+      html:     deletionCancelledHtml({ fullName: profile?.full_name ?? user.email ?? 'Usuario' }),
+      template: 'deletion_cancelled',
+      userId:   user.id,
+      metadata: { cancelled_by: 'user' },
     });
 
     return NextResponse.json({ success: true });
