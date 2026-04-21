@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { Users, FileText, HardDrive, TrendingUp, UserCheck, UserX, ShieldCheck, DollarSign, Loader2 } from 'lucide-react';
+import { Users, FileText, HardDrive, TrendingUp, UserCheck, UserX, ShieldCheck, DollarSign, Loader2, Clock, Trash2 } from 'lucide-react';
 
 interface Stats {
   total_users: number;
   active_users: number;
   suspended_users: number;
   admin_users: number;
+  pending_deletions: number;
+  total_deleted_users: number;
   total_documents: number;
   total_storage_bytes: number;
   new_users_today: number;
@@ -104,6 +106,23 @@ export default function AdminDashboard() {
         <StatCard icon={DollarSign} label="Ingresos totales"  value={fmtCOP(stats.revenue_total_cop)}  color="bg-teal-700" />
         <StatCard icon={UserX}      label="Suspendidos"       value={stats.suspended_users}    color="bg-red-700" />
         <StatCard icon={ShieldCheck}label="Administradores"   value={stats.admin_users}        color="bg-purple-700" />
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          icon={Clock}
+          label="Bajas pendientes"
+          value={stats.pending_deletions ?? 0}
+          sub="En periodo de gracia"
+          color="bg-orange-600"
+        />
+        <StatCard
+          icon={Trash2}
+          label="Cuentas eliminadas"
+          value={stats.total_deleted_users ?? 0}
+          sub="Historial total"
+          color="bg-rose-800"
+        />
       </div>
 
       {/* Distribución por plan */}

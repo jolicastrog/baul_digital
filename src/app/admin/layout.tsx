@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Users, CreditCard, FileText, FolderOpen,
   Receipt, ClipboardList, ShieldAlert, LogOut, Menu, X, ShieldCheck,
+  Trash2,
 } from 'lucide-react';
 
 const NAV_LINKS = [
@@ -17,6 +18,7 @@ const NAV_LINKS = [
   { href: '/admin/payments',        icon: Receipt,         label: 'Pagos' },
   { href: '/admin/audit',           icon: ClipboardList,   label: 'Auditoría' },
   { href: '/admin/fraud',           icon: ShieldAlert,     label: 'Fraude' },
+  { href: '/admin/deletions',       icon: Trash2,          label: 'Bajas de Cuenta' },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
