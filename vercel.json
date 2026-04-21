@@ -5,6 +5,10 @@
       "schedule": "0 3 * * *"
     },
     {
+      "path": "/api/cron/send-reminders",
+      "schedule": "0 4 * * *"
+    },
+    {
       "path": "/api/cron/purge-archives",
       "schedule": "0 2 1 1 *"
     }
