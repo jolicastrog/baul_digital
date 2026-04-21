@@ -357,27 +357,25 @@ export default function SettingsPage() {
     setExporting(true);
     setExportMsg(null);
     setExportDone(false);
-    const res  = await fetch('/api/account/export-documents');
-    const data = await res.json();
+    const res = await fetch('/api/account/export-documents');
+
     if (!res.ok) {
-      setExportMsg({ type: 'error', text: data.error ?? 'Error al exportar. Intenta de nuevo.' });
+      const data = await res.json().catch(() => ({}));
+      const msg  = res.status === 404
+        ? 'No tienes documentos guardados para exportar.'
+        : data.error ?? 'Error al exportar. Intenta de nuevo.';
+      setExportMsg({ type: res.status === 404 ? 'info' : 'error', text: msg });
       setExporting(false);
       return;
     }
-    if (!data.documents?.length) {
-      setExportMsg({ type: 'info', text: 'No tienes documentos guardados para exportar.' });
-      setExporting(false);
-      return;
-    }
-    // Descargar JSON con metadatos + URLs firmadas
-    const blob = new Blob(
-      [JSON.stringify({ exported_at: new Date().toISOString(), documents: data.documents }, null, 2)],
-      { type: 'application/json' }
-    );
-    const url = URL.createObjectURL(blob);
-    const a   = document.createElement('a');
-    a.href     = url;
-    a.download = `baul-digital-documentos-${new Date().toISOString().slice(0, 10)}.json`;
+
+    // Recibir ZIP y disparar descarga
+    const blob     = await res.blob();
+    const date     = new Date().toISOString().slice(0, 10);
+    const url      = URL.createObjectURL(blob);
+    const a        = document.createElement('a');
+    a.href         = url;
+    a.download     = `baul-digital-${date}.zip`;
     a.click();
     URL.revokeObjectURL(url);
     setExportDone(true);
@@ -887,7 +885,7 @@ export default function SettingsPage() {
           <h2 className="font-semibold text-white">Exportar Mis Documentos</h2>
         </div>
         <p className="text-slate-400 text-sm mb-5">
-          Descarga un archivo JSON con los metadatos y enlaces temporales (1 hora) de todos tus documentos.
+          Descarga un archivo <strong className="text-slate-300">.zip</strong> con todos tus documentos.
           Útil antes de cerrar tu cuenta o como respaldo personal.
         </p>
 
@@ -902,7 +900,7 @@ export default function SettingsPage() {
             {exportDone || exportMsg?.type === 'success'
               ? <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
               : <AlertCircle  className="w-4 h-4 mt-0.5 flex-shrink-0" />}
-            {exportDone ? 'Descarga iniciada. Los enlaces son válidos por 1 hora.' : exportMsg?.text}
+            {exportDone ? 'ZIP descargado correctamente. Revisa tu carpeta de Descargas.' : exportMsg?.text}
           </div>
         )}
 

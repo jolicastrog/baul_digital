@@ -2,16 +2,18 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
+import JSZip from 'jszip';
 
 export const dynamic = 'force-dynamic';
+// ZIP puede tardar en generarse para cuentas con muchos archivos
+export const maxDuration = 60;
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const SIGNED_URL_EXPIRY = 60 * 60; // 1 hora para descarga masiva
-const STORAGE_BUCKET    = 'documents';
+const STORAGE_BUCKET = 'documents';
 
 function getAnonSupabase() {
   const cookieStore = cookies();
@@ -31,7 +33,7 @@ function getAnonSupabase() {
   );
 }
 
-// GET — retorna lista de documentos con URLs firmadas (1h) para descarga
+// GET — descarga un ZIP con todos los documentos del usuario
 export async function GET() {
   try {
     const supabase = getAnonSupabase();
@@ -40,10 +42,9 @@ export async function GET() {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    // Obtener todos los documentos del usuario
     const { data: documents, error: docsError } = await supabaseAdmin
       .from('documents')
-      .select('id, file_name, storage_path, file_type, expiry_date, description, created_at')
+      .select('id, file_name, storage_path, file_type, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -53,46 +54,56 @@ export async function GET() {
     }
 
     if (!documents || documents.length === 0) {
-      return NextResponse.json({ success: true, documents: [] });
+      return NextResponse.json({ error: 'No tienes documentos para exportar.' }, { status: 404 });
     }
 
-    // Generar URLs firmadas en paralelo (máximo 50 a la vez para no saturar)
-    const BATCH = 50;
-    const result: Array<{
-      id: string;
-      file_name: string;
-      file_type: string;
-      expiry_date: string | null;
-      description: string | null;
-      created_at: string;
-      download_url: string | null;
-    }> = [];
+    const zip = new JSZip();
+
+    // Descargar archivos en lotes de 10 para no saturar el storage
+    const BATCH = 10;
+    const usedNames = new Map<string, number>();
 
     for (let i = 0; i < documents.length; i += BATCH) {
       const batch = documents.slice(i, i + BATCH);
-      const signed = await Promise.all(
+      await Promise.all(
         batch.map(async (doc) => {
-          const { data: signedData } = await supabaseAdmin.storage
-            .from(STORAGE_BUCKET)
-            .createSignedUrl(doc.storage_path, SIGNED_URL_EXPIRY);
-          return {
-            id:          doc.id,
-            file_name:   doc.file_name,
-            file_type:   doc.file_type,
-            expiry_date: doc.expiry_date ?? null,
-            description: doc.description ?? null,
-            created_at:  doc.created_at,
-            download_url: signedData?.signedUrl ?? null,
-          };
+          try {
+            const { data, error } = await supabaseAdmin.storage
+              .from(STORAGE_BUCKET)
+              .download(doc.storage_path);
+
+            if (error || !data) return;
+
+            // Evitar nombres duplicados en el ZIP
+            const base  = doc.file_name;
+            const count = usedNames.get(base) ?? 0;
+            const name  = count === 0 ? base : `${base.replace(/(\.[^.]+)$/, '')}_${count}$1`;
+            usedNames.set(base, count + 1);
+
+            const buffer = await data.arrayBuffer();
+            zip.file(name, buffer);
+          } catch {
+            // Si un archivo falla, continúa con los demás
+          }
         })
       );
-      result.push(...signed);
     }
 
-    return NextResponse.json({
-      success:   true,
-      count:     result.length,
-      documents: result,
+    const zipBuffer = await zip.generateAsync({
+      type:               'nodebuffer',
+      compression:        'DEFLATE',
+      compressionOptions: { level: 6 },
+    });
+
+    const date     = new Date().toISOString().slice(0, 10);
+    const filename = `baul-digital-${date}.zip`;
+
+    return new Response(zipBuffer, {
+      headers: {
+        'Content-Type':        'application/zip',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length':      String(zipBuffer.length),
+      },
     });
   } catch (err) {
     console.error('[export-documents] Error:', err);
