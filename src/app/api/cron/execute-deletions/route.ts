@@ -34,6 +34,7 @@ export async function POST(request: Request) {
 
     for (const row of pending as Array<{ user_id: string; user_email: string }>) {
       try {
+        // Paso 1: marcar solicitud como ejecutada en BD (no borra auth.users)
         const { data, error } = await supabaseAdmin
           .rpc('execute_account_deletion', {
             p_user_id:     row.user_id,
@@ -42,6 +43,15 @@ export async function POST(request: Request) {
 
         if (error || !(data as any)?.success) {
           results.push({ user_id: row.user_id, status: 'error', error: error?.message ?? (data as any)?.error });
+          continue;
+        }
+
+        // Paso 2: eliminar de auth.users via Admin SDK (dispara cascade → trigger archive)
+        const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(row.user_id);
+
+        if (deleteError) {
+          console.error(`[execute-deletions] auth.admin.deleteUser failed for ${row.user_id}:`, deleteError);
+          results.push({ user_id: row.user_id, status: 'error', error: deleteError.message });
           continue;
         }
 
