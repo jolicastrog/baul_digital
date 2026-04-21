@@ -51,7 +51,7 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('[request-deletion] RPC error:', error);
-      return NextResponse.json({ error: 'Error al procesar la solicitud.' }, { status: 500 });
+      return NextResponse.json({ error: `RPC error: ${error.message} (code: ${error.code})` }, { status: 500 });
     }
 
     const result = data as { success: boolean; error?: string; scheduled_for?: string; days_remaining?: number };
