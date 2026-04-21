@@ -4,16 +4,15 @@ import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import JSZip from 'jszip';
 
-export const dynamic = 'force-dynamic';
-// ZIP puede tardar en generarse para cuentas con muchos archivos
+export const dynamic  = 'force-dynamic';
 export const maxDuration = 60;
 
-const supabaseAdmin = createClient(
+const supabaseAdmin  = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
 const STORAGE_BUCKET = 'documents';
+const SIGNED_EXPIRY  = 300; // 5 min — solo para descarga interna
 
 function getAnonSupabase() {
   const cookieStore = cookies();
@@ -33,7 +32,6 @@ function getAnonSupabase() {
   );
 }
 
-// GET — descarga un ZIP con todos los documentos del usuario
 export async function GET() {
   try {
     const supabase = getAnonSupabase();
@@ -44,7 +42,7 @@ export async function GET() {
 
     const { data: documents, error: docsError } = await supabaseAdmin
       .from('documents')
-      .select('id, file_name, storage_path, file_type, created_at')
+      .select('id, file_name, storage_path, file_type')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -57,36 +55,51 @@ export async function GET() {
       return NextResponse.json({ error: 'No tienes documentos para exportar.' }, { status: 404 });
     }
 
-    const zip = new JSZip();
-
-    // Descargar archivos en lotes de 10 para no saturar el storage
-    const BATCH = 10;
+    const zip      = new JSZip();
     const usedNames = new Map<string, number>();
+    const BATCH    = 5; // lotes pequeños para no saturar
 
     for (let i = 0; i < documents.length; i += BATCH) {
       const batch = documents.slice(i, i + BATCH);
-      await Promise.all(
-        batch.map(async (doc) => {
-          try {
-            const { data, error } = await supabaseAdmin.storage
-              .from(STORAGE_BUCKET)
-              .download(doc.storage_path);
 
-            if (error || !data) return;
+      await Promise.all(batch.map(async (doc) => {
+        try {
+          // 1. Generar URL firmada
+          const { data: signed, error: signErr } = await supabaseAdmin.storage
+            .from(STORAGE_BUCKET)
+            .createSignedUrl(doc.storage_path, SIGNED_EXPIRY);
 
-            // Evitar nombres duplicados en el ZIP
-            const base  = doc.file_name;
-            const count = usedNames.get(base) ?? 0;
-            const name  = count === 0 ? base : `${base.replace(/(\.[^.]+)$/, '')}_${count}$1`;
-            usedNames.set(base, count + 1);
+          if (signErr || !signed?.signedUrl) return;
 
-            const buffer = await data.arrayBuffer();
-            zip.file(name, buffer);
-          } catch {
-            // Si un archivo falla, continúa con los demás
-          }
-        })
-      );
+          // 2. Descargar el archivo real vía HTTP
+          const fileRes = await fetch(signed.signedUrl);
+          if (!fileRes.ok) return;
+
+          // 3. Verificar que no sea respuesta JSON de error
+          const contentType = fileRes.headers.get('content-type') ?? '';
+          if (contentType.includes('application/json')) return;
+
+          const buffer = await fileRes.arrayBuffer();
+          if (buffer.byteLength === 0) return;
+
+          // 4. Nombre único en el ZIP
+          const baseName = doc.file_name;
+          const count    = usedNames.get(baseName) ?? 0;
+          const zipName  = count === 0
+            ? baseName
+            : baseName.replace(/(\.[^.]+)$/, `_${count}$1`);
+          usedNames.set(baseName, count + 1);
+
+          zip.file(zipName, buffer);
+        } catch {
+          // archivo fallido: continuar con los demás
+        }
+      }));
+    }
+
+    const fileCount = Object.keys(zip.files).length;
+    if (fileCount === 0) {
+      return NextResponse.json({ error: 'No se pudo acceder a los archivos.' }, { status: 500 });
     }
 
     const zipBuffer = await zip.generateAsync({
@@ -98,7 +111,7 @@ export async function GET() {
     const date     = new Date().toISOString().slice(0, 10);
     const filename = `baul-digital-${date}.zip`;
 
-    return new Response(zipBuffer, {
+    return new Response(new Uint8Array(zipBuffer), {
       headers: {
         'Content-Type':        'application/zip',
         'Content-Disposition': `attachment; filename="${filename}"`,

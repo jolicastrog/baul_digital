@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   User, Shield, Lock, HardDrive, Tag,
@@ -114,7 +114,7 @@ export default function SettingsPage() {
   const [exportMsg,   setExportMsg]   = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   // Cierre de cuenta
-  const [deletionReason,   setDeletionReason]   = useState('');
+  const deletionReasonRef                        = useRef<HTMLTextAreaElement>(null);
   const [deletionConfirm,  setDeletionConfirm]  = useState(false);
   const [requestingDel,    setRequestingDel]    = useState(false);
   const [cancellingDel,    setCancellingDel]    = useState(false);
@@ -387,10 +387,11 @@ export default function SettingsPage() {
     if (!deletionConfirm) return;
     setRequestingDel(true);
     setDeletionMsg(null);
+    const reason = deletionReasonRef.current?.value?.trim() || null;
     const res  = await fetch('/api/account/request-deletion', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ reason: deletionReason.trim() || null }),
+      body:    JSON.stringify({ reason }),
     });
     const data = await res.json();
     if (res.ok) {
@@ -403,6 +404,7 @@ export default function SettingsPage() {
       });
       setProfile(prev => prev ? { ...prev, deletion_requested_at: new Date().toISOString() } : prev);
       setDeletionConfirm(false);
+      if (deletionReasonRef.current) deletionReasonRef.current.value = '';
     } else {
       const msg = data.error === 'deletion_already_requested'
         ? 'Ya tienes una solicitud de cierre activa.'
@@ -975,14 +977,13 @@ export default function SettingsPage() {
                 Motivo del cierre <span className="text-slate-500 text-xs font-normal">(opcional)</span>
               </label>
               <textarea
-                value={deletionReason}
-                onChange={e => setDeletionReason(e.target.value)}
+                ref={deletionReasonRef}
+                defaultValue=""
                 rows={3}
                 maxLength={300}
                 placeholder="Cuéntanos por qué cierras tu cuenta…"
                 className="relative z-10 w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 text-sm resize-none"
               />
-              <p className="text-xs text-slate-600 mt-1 text-right">{deletionReason.length}/300</p>
             </div>
 
             <label className="flex items-start gap-3 cursor-pointer group">
