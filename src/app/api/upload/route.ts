@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
+import { getRequestMeta } from '@/lib/utils/requestMeta';
 
 const STORAGE_BUCKET = 'documents';
 const SIGNED_URL_EXPIRY = 15 * 60; // 15 minutos
@@ -161,12 +162,16 @@ export async function POST(request: Request) {
       .createSignedUrl(storagePath, SIGNED_URL_EXPIRY);
 
     // 8. Audit log
+    const { ip_address, user_agent } = getRequestMeta(request);
     await supabaseAdmin.from('audit_logs').insert({
-      user_id: user.id,
-      action: 'DOCUMENT_UPLOADED',
+      user_id:       user.id,
+      action:        'DOCUMENT_UPLOADED',
       resource_type: 'document',
-      resource_id: document.id,
-      details: { file_name: file.name, file_size: file.size, category: categoryName },
+      resource_id:   document.id,
+      ip_address,
+      user_agent,
+      details:       { file_name: file.name, file_size: file.size, category: categoryName },
+      retain_until:  new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
     });
 
     return NextResponse.json({

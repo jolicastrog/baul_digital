@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
+import { getRequestMeta } from '@/lib/utils/requestMeta';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -97,12 +98,16 @@ export async function PATCH(request: Request) {
     }
 
     // Registrar en audit log (sin bloquear la respuesta)
+    const { ip_address, user_agent } = getRequestMeta(request);
     void supabaseAdmin.from('audit_logs').insert({
       user_id:       userId,
       action:        'PROFILE_UPDATED',
       resource_type: 'profile',
       resource_id:   userId,
+      ip_address,
+      user_agent,
       details:       { fields_updated: Object.keys(body) },
+      retain_until:  new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
     });
 
     return NextResponse.json({ success: true, profile: res.profile });
@@ -137,11 +142,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No se pudo cambiar la contraseña. Intenta de nuevo.' }, { status: 500 });
     }
 
+    const { ip_address, user_agent } = getRequestMeta(request);
     void supabaseAdmin.from('audit_logs').insert({
       user_id:       userId,
       action:        'PASSWORD_CHANGED',
       resource_type: 'profile',
       resource_id:   userId,
+      ip_address,
+      user_agent,
+      retain_until:  new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
     });
 
     return NextResponse.json({ success: true });

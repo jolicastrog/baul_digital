@@ -111,14 +111,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: msg }, { status });
     }
 
-    await supabaseAdmin.from('audit_logs').insert({
-      user_id:       user.id,
-      action:        'CATEGORY_CREATED',
-      resource_type: 'category',
-      resource_id:   data.id,
-      details:       { name: data.name },
-    });
-
     return NextResponse.json({ success: true, category: data });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

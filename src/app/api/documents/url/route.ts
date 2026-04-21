@@ -68,14 +68,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No se pudo generar la URL' }, { status: 500 });
     }
 
-    // 5. Registrar acceso en audit log
-    await supabaseAdmin.from('audit_logs').insert({
-      user_id: user.id,
-      action:        'DOCUMENT_VIEWED',
-      resource_type: 'document',
-      resource_id:   documentId,
-    });
-
     return NextResponse.json({ url: signedData.signedUrl });
 
   } catch (error) {
