@@ -111,6 +111,7 @@ export default function SettingsPage() {
   // Exportar documentos
   const [exporting,   setExporting]   = useState(false);
   const [exportDone,  setExportDone]  = useState(false);
+  const [exportMsg,   setExportMsg]   = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   // Cierre de cuenta
   const [deletionReason,   setDeletionReason]   = useState('');
@@ -354,9 +355,17 @@ export default function SettingsPage() {
   // ── Handler: exportar documentos ────────────────────────────────────────
   const handleExportDocuments = async () => {
     setExporting(true);
+    setExportMsg(null);
+    setExportDone(false);
     const res  = await fetch('/api/account/export-documents');
     const data = await res.json();
-    if (!res.ok || !data.documents?.length) {
+    if (!res.ok) {
+      setExportMsg({ type: 'error', text: data.error ?? 'Error al exportar. Intenta de nuevo.' });
+      setExporting(false);
+      return;
+    }
+    if (!data.documents?.length) {
+      setExportMsg({ type: 'info', text: 'No tienes documentos guardados para exportar.' });
       setExporting(false);
       return;
     }
@@ -882,10 +891,18 @@ export default function SettingsPage() {
           Útil antes de cerrar tu cuenta o como respaldo personal.
         </p>
 
-        {exportDone && (
-          <div className="flex items-start gap-3 rounded-xl p-4 text-sm bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-4">
-            <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            Descarga iniciada. Los enlaces son válidos por 1 hora.
+        {(exportDone || exportMsg) && (
+          <div className={`flex items-start gap-3 rounded-xl p-4 text-sm mb-4 ${
+            exportDone || exportMsg?.type === 'success'
+              ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+              : exportMsg?.type === 'info'
+                ? 'bg-blue-500/10 border border-blue-500/30 text-blue-400'
+                : 'bg-red-500/10 border border-red-500/30 text-red-400'
+          }`}>
+            {exportDone || exportMsg?.type === 'success'
+              ? <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              : <AlertCircle  className="w-4 h-4 mt-0.5 flex-shrink-0" />}
+            {exportDone ? 'Descarga iniciada. Los enlaces son válidos por 1 hora.' : exportMsg?.text}
           </div>
         )}
 
@@ -955,18 +972,19 @@ export default function SettingsPage() {
               De acuerdo con la Ley 1581 de 2012, algunos registros financieros y de auditoría se conservarán por 5 años según el Código de Comercio colombiano.
             </p>
 
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
                 Motivo del cierre <span className="text-slate-500 text-xs font-normal">(opcional)</span>
               </label>
               <textarea
                 value={deletionReason}
                 onChange={e => setDeletionReason(e.target.value)}
-                rows={2}
+                rows={3}
                 maxLength={300}
                 placeholder="Cuéntanos por qué cierras tu cuenta…"
-                className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 text-sm resize-none"
+                className="relative z-10 w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 text-sm resize-none"
               />
+              <p className="text-xs text-slate-600 mt-1 text-right">{deletionReason.length}/300</p>
             </div>
 
             <label className="flex items-start gap-3 cursor-pointer group">
