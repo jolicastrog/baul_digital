@@ -43,7 +43,7 @@ export async function GET() {
     // Obtener todos los documentos del usuario
     const { data: documents, error: docsError } = await supabaseAdmin
       .from('documents')
-      .select('id, file_name, storage_path, document_type, expiry_date, expiry_note, created_at')
+      .select('id, file_name, storage_path, file_type, expiry_date, description, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -61,9 +61,9 @@ export async function GET() {
     const result: Array<{
       id: string;
       file_name: string;
-      document_type: string;
+      file_type: string;
       expiry_date: string | null;
-      expiry_note: string | null;
+      description: string | null;
       created_at: string;
       download_url: string | null;
     }> = [];
@@ -76,13 +76,13 @@ export async function GET() {
             .from(STORAGE_BUCKET)
             .createSignedUrl(doc.storage_path, SIGNED_URL_EXPIRY);
           return {
-            id:            doc.id,
-            file_name:     doc.file_name,
-            document_type: doc.document_type,
-            expiry_date:   doc.expiry_date ?? null,
-            expiry_note:   doc.expiry_note ?? null,
-            created_at:    doc.created_at,
-            download_url:  signedData?.signedUrl ?? null,
+            id:          doc.id,
+            file_name:   doc.file_name,
+            file_type:   doc.file_type,
+            expiry_date: doc.expiry_date ?? null,
+            description: doc.description ?? null,
+            created_at:  doc.created_at,
+            download_url: signedData?.signedUrl ?? null,
           };
         })
       );
