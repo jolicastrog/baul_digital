@@ -6,6 +6,7 @@ import {
   User, Shield, Lock, HardDrive, Tag,
   CheckCircle2, AlertCircle, Loader2,
   Eye, EyeOff, XCircle,
+  CreditCard, Download, Trash2, FileDown,
 } from 'lucide-react';
 import CategoryManager from '@/components/CategoryManager';
 
@@ -15,17 +16,18 @@ type CedulaTipo = string;
 interface DocumentType { code: string; name: string; }
 
 type Profile = {
-  id:                  string;
-  email:               string;
-  nombres:             string | null;
-  apellidos:           string | null;
-  full_name:           string | null;
-  cedula_unica:        string;
-  cedula_tipo:         string;
-  phone:               string | null;
-  plan_type:           string;
-  storage_used_bytes:  number;
-  storage_quota_bytes: number;
+  id:                     string;
+  email:                  string;
+  nombres:                string | null;
+  apellidos:              string | null;
+  full_name:              string | null;
+  cedula_unica:           string;
+  cedula_tipo:            string;
+  phone:                  string | null;
+  plan_type:              string;
+  storage_used_bytes:     number;
+  storage_quota_bytes:    number;
+  deletion_requested_at:  string | null;
 };
 
 // ── Constantes ─────────────────────────────────────────────────────────────
@@ -99,6 +101,23 @@ export default function SettingsPage() {
   const [loading,       setLoading]       = useState(true);
   const [loadError,     setLoadError]     = useState<string | null>(null);
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
+
+  // Suscripción
+  const [cancelSubReason,  setCancelSubReason]  = useState('');
+  const [cancelSubConfirm, setCancelSubConfirm] = useState(false);
+  const [cancellingSub,    setCancellingub]     = useState(false);
+  const [cancelSubMsg,     setCancelSubMsg]     = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Exportar documentos
+  const [exporting,   setExporting]   = useState(false);
+  const [exportDone,  setExportDone]  = useState(false);
+
+  // Cierre de cuenta
+  const [deletionReason,   setDeletionReason]   = useState('');
+  const [deletionConfirm,  setDeletionConfirm]  = useState(false);
+  const [requestingDel,    setRequestingDel]    = useState(false);
+  const [cancellingDel,    setCancellingDel]    = useState(false);
+  const [deletionMsg,      setDeletionMsg]      = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Formulario perfil
   const [nombres,     setNombres]     = useState('');
@@ -303,6 +322,102 @@ export default function SettingsPage() {
       setPasswordMsg({ type: 'error', text: data.error || 'Error al cambiar contraseña.' });
     }
     setSavingPassword(false);
+  };
+
+  // ── Handler: cancelar suscripción ───────────────────────────────────────
+  const handleCancelSubscription = async () => {
+    if (!cancelSubConfirm) return;
+    setCancellingub(true);
+    setCancelSubMsg(null);
+    const res = await fetch('/api/account/cancel-subscription', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ reason: cancelSubReason.trim() || 'Cancelado por el usuario' }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      const periodEnd = data.period_end
+        ? new Date(data.period_end).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })
+        : '';
+      setCancelSubMsg({
+        type: 'success',
+        text: `Suscripción cancelada. Tu plan seguirá activo hasta el ${periodEnd}.`,
+      });
+      setCancelSubConfirm(false);
+      setCancelSubReason('');
+    } else {
+      setCancelSubMsg({ type: 'error', text: data.error ?? 'Error al cancelar la suscripción.' });
+    }
+    setCancellingub(false);
+  };
+
+  // ── Handler: exportar documentos ────────────────────────────────────────
+  const handleExportDocuments = async () => {
+    setExporting(true);
+    const res  = await fetch('/api/account/export-documents');
+    const data = await res.json();
+    if (!res.ok || !data.documents?.length) {
+      setExporting(false);
+      return;
+    }
+    // Descargar JSON con metadatos + URLs firmadas
+    const blob = new Blob(
+      [JSON.stringify({ exported_at: new Date().toISOString(), documents: data.documents }, null, 2)],
+      { type: 'application/json' }
+    );
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = `baul-digital-documentos-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExportDone(true);
+    setExporting(false);
+  };
+
+  // ── Handler: solicitar cierre de cuenta ─────────────────────────────────
+  const handleRequestDeletion = async () => {
+    if (!deletionConfirm) return;
+    setRequestingDel(true);
+    setDeletionMsg(null);
+    const res  = await fetch('/api/account/request-deletion', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ reason: deletionReason.trim() || null }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      const scheduled = data.scheduled_for
+        ? new Date(data.scheduled_for).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })
+        : '';
+      setDeletionMsg({
+        type: 'success',
+        text: `Solicitud registrada. Tu cuenta será eliminada el ${scheduled} si no cancelas la solicitud.`,
+      });
+      setProfile(prev => prev ? { ...prev, deletion_requested_at: new Date().toISOString() } : prev);
+      setDeletionConfirm(false);
+    } else {
+      const msg = data.error === 'deletion_already_requested'
+        ? 'Ya tienes una solicitud de cierre activa.'
+        : data.error ?? 'Error al procesar la solicitud.';
+      setDeletionMsg({ type: 'error', text: msg });
+    }
+    setRequestingDel(false);
+  };
+
+  // ── Handler: cancelar cierre de cuenta ──────────────────────────────────
+  const handleCancelDeletion = async () => {
+    setCancellingDel(true);
+    setDeletionMsg(null);
+    const res  = await fetch('/api/account/cancel-deletion', { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      setDeletionMsg({ type: 'success', text: 'Solicitud de cierre cancelada. Tu cuenta está activa.' });
+      setProfile(prev => prev ? { ...prev, deletion_requested_at: null } : prev);
+    } else {
+      setDeletionMsg({ type: 'error', text: data.error ?? 'Error al cancelar.' });
+    }
+    setCancellingDel(false);
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -691,6 +806,205 @@ export default function SettingsPage() {
             </Link>
           )}
         </div>
+      </div>
+
+      {/* Suscripción — solo premium / enterprise */}
+      {profile?.plan_type !== 'free' && (
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <CreditCard className="w-5 h-5 text-blue-400" />
+            <h2 className="font-semibold text-white">Suscripción</h2>
+          </div>
+          <p className="text-slate-400 text-sm mb-5">
+            Al cancelar, tu plan seguirá activo hasta el final del período pagado. No se realizan reembolsos parciales.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Motivo de cancelación <span className="text-slate-500 text-xs font-normal">(opcional)</span>
+              </label>
+              <textarea
+                value={cancelSubReason}
+                onChange={e => setCancelSubReason(e.target.value)}
+                rows={2}
+                maxLength={300}
+                placeholder="Cuéntanos por qué cancelas…"
+                className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm resize-none"
+              />
+            </div>
+
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={cancelSubConfirm}
+                onChange={e => setCancelSubConfirm(e.target.checked)}
+                className="mt-0.5 accent-blue-500 w-4 h-4 flex-shrink-0"
+              />
+              <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
+                Entiendo que al cancelar, mi plan seguirá activo hasta el vencimiento del período actual.
+              </span>
+            </label>
+
+            {cancelSubMsg && (
+              <div className={`flex items-start gap-3 rounded-xl p-4 text-sm ${
+                cancelSubMsg.type === 'success'
+                  ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+                  : 'bg-red-500/10 border border-red-500/30 text-red-400'
+              }`}>
+                {cancelSubMsg.type === 'success'
+                  ? <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  : <AlertCircle  className="w-4 h-4 mt-0.5 flex-shrink-0" />}
+                {cancelSubMsg.text}
+              </div>
+            )}
+
+            <button
+              onClick={handleCancelSubscription}
+              disabled={!cancelSubConfirm || cancellingSub}
+              className="flex items-center px-5 py-2.5 bg-orange-600/20 hover:bg-orange-600/30 disabled:opacity-40 disabled:cursor-not-allowed text-orange-400 border border-orange-500/30 font-semibold rounded-xl transition-all text-sm"
+            >
+              {cancellingSub && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Cancelar suscripción
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Exportar documentos */}
+      <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Download className="w-5 h-5 text-blue-400" />
+          <h2 className="font-semibold text-white">Exportar Mis Documentos</h2>
+        </div>
+        <p className="text-slate-400 text-sm mb-5">
+          Descarga un archivo JSON con los metadatos y enlaces temporales (1 hora) de todos tus documentos.
+          Útil antes de cerrar tu cuenta o como respaldo personal.
+        </p>
+
+        {exportDone && (
+          <div className="flex items-start gap-3 rounded-xl p-4 text-sm bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-4">
+            <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            Descarga iniciada. Los enlaces son válidos por 1 hora.
+          </div>
+        )}
+
+        <button
+          onClick={handleExportDocuments}
+          disabled={exporting}
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600/20 hover:bg-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed text-blue-400 border border-blue-500/30 font-semibold rounded-xl transition-all text-sm"
+        >
+          {exporting
+            ? <Loader2 className="w-4 h-4 animate-spin" />
+            : <FileDown className="w-4 h-4" />}
+          {exporting ? 'Generando…' : 'Descargar mis documentos'}
+        </button>
+      </div>
+
+      {/* Zona de peligro — cierre de cuenta */}
+      <div className="bg-slate-900/50 backdrop-blur-xl border border-red-500/10 rounded-2xl p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Trash2 className="w-5 h-5 text-red-400" />
+          <h2 className="font-semibold text-red-400">Zona de Peligro</h2>
+        </div>
+
+        {profile?.deletion_requested_at ? (
+          /* Solicitud activa — permitir cancelar */
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 rounded-xl p-4 bg-orange-500/10 border border-orange-500/20 text-orange-300 text-sm">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-orange-400" />
+              <div>
+                <p className="font-semibold text-orange-400 mb-1">Solicitud de cierre activa</p>
+                <p>Tu cuenta está programada para eliminarse. Tienes 30 días desde la solicitud para cancelar este proceso.</p>
+                <p className="mt-1 text-xs text-orange-400/70">
+                  Solicitado el {new Date(profile.deletion_requested_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+            </div>
+
+            {deletionMsg && (
+              <div className={`flex items-start gap-3 rounded-xl p-4 text-sm ${
+                deletionMsg.type === 'success'
+                  ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+                  : 'bg-red-500/10 border border-red-500/30 text-red-400'
+              }`}>
+                {deletionMsg.type === 'success'
+                  ? <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  : <AlertCircle  className="w-4 h-4 mt-0.5 flex-shrink-0" />}
+                {deletionMsg.text}
+              </div>
+            )}
+
+            <button
+              onClick={handleCancelDeletion}
+              disabled={cancellingDel}
+              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 disabled:opacity-50 text-emerald-400 border border-emerald-500/30 font-semibold rounded-xl transition-all text-sm"
+            >
+              {cancellingDel && <Loader2 className="w-4 h-4 animate-spin" />}
+              Cancelar solicitud de cierre
+            </button>
+          </div>
+        ) : (
+          /* Sin solicitud activa — mostrar formulario */
+          <div className="space-y-4">
+            <p className="text-slate-400 text-sm">
+              Al solicitar el cierre, tu cuenta entrará en un período de gracia de <strong className="text-slate-300">30 días</strong>.
+              Durante ese tiempo puedes cancelar la solicitud. Pasado ese plazo, tu cuenta y todos tus documentos serán eliminados permanentemente.
+            </p>
+            <p className="text-slate-500 text-xs">
+              De acuerdo con la Ley 1581 de 2012, algunos registros financieros y de auditoría se conservarán por 5 años según el Código de Comercio colombiano.
+            </p>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Motivo del cierre <span className="text-slate-500 text-xs font-normal">(opcional)</span>
+              </label>
+              <textarea
+                value={deletionReason}
+                onChange={e => setDeletionReason(e.target.value)}
+                rows={2}
+                maxLength={300}
+                placeholder="Cuéntanos por qué cierras tu cuenta…"
+                className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 text-sm resize-none"
+              />
+            </div>
+
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={deletionConfirm}
+                onChange={e => setDeletionConfirm(e.target.checked)}
+                className="mt-0.5 accent-red-500 w-4 h-4 flex-shrink-0"
+              />
+              <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
+                Entiendo que después de 30 días mi cuenta y todos mis documentos serán eliminados permanentemente.
+              </span>
+            </label>
+
+            {deletionMsg && (
+              <div className={`flex items-start gap-3 rounded-xl p-4 text-sm ${
+                deletionMsg.type === 'success'
+                  ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+                  : 'bg-red-500/10 border border-red-500/30 text-red-400'
+              }`}>
+                {deletionMsg.type === 'success'
+                  ? <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  : <AlertCircle  className="w-4 h-4 mt-0.5 flex-shrink-0" />}
+                {deletionMsg.text}
+              </div>
+            )}
+
+            <button
+              onClick={handleRequestDeletion}
+              disabled={!deletionConfirm || requestingDel}
+              className="flex items-center gap-2 px-5 py-2.5 bg-red-600/20 hover:bg-red-600/30 disabled:opacity-40 disabled:cursor-not-allowed text-red-400 border border-red-500/30 font-semibold rounded-xl transition-all text-sm"
+            >
+              {requestingDel && <Loader2 className="w-4 h-4 animate-spin" />}
+              <Trash2 className="w-4 h-4" />
+              Solicitar cierre de cuenta
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

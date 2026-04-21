@@ -235,6 +235,27 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+      {/* Banner: cuenta en periodo de gracia */}
+      {quota?.deletion_requested_at && (
+        <div className="flex items-start gap-4 rounded-2xl p-5 bg-orange-500/10 border border-orange-500/25 text-orange-300">
+          <AlertTriangle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-orange-400">Tu cuenta está programada para eliminarse</p>
+            <p className="text-sm mt-1">
+              Solicitaste el cierre el{' '}
+              {new Date(quota.deletion_requested_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}.
+              {' '}Tienes 30 días para cancelar la solicitud antes de que tu cuenta y documentos sean eliminados permanentemente.
+            </p>
+          </div>
+          <a
+            href="/dashboard/settings"
+            className="flex-shrink-0 px-4 py-2 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/30 text-sm font-semibold transition-colors whitespace-nowrap"
+          >
+            Cancelar solicitud
+          </a>
+        </div>
+      )}
+
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white tracking-tight">Tu Bóveda</h1>

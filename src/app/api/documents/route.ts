@@ -45,7 +45,7 @@ export async function GET(_request: Request) {
 
       supabaseAdmin
         .from('profiles')
-        .select('plan_type, storage_quota_bytes, storage_used_bytes')
+        .select('plan_type, storage_quota_bytes, storage_used_bytes, deletion_requested_at')
         .eq('id', user.id)
         .single(),
 
@@ -79,6 +79,7 @@ export async function GET(_request: Request) {
             : 0,
           plan_type: profile.plan_type,
           max_documents: maxDocuments,
+          deletion_requested_at: profile.deletion_requested_at ?? null,
         }
       : null;
 
