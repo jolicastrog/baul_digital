@@ -103,7 +103,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    const { documentId, expiry_date } = await request.json();
+    const { documentId, expiry_date, expiry_note } = await request.json();
     if (!documentId) {
       return NextResponse.json({ error: 'Missing documentId' }, { status: 400 });
     }
@@ -119,9 +119,12 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Documento no encontrado o acceso denegado' }, { status: 404 });
     }
 
+    const updatePayload: Record<string, any> = { expiry_date: expiry_date ?? null };
+    if (expiry_note !== undefined) updatePayload.expiry_note = expiry_note ?? null;
+
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('documents')
-      .update({ expiry_date: expiry_date ?? null })
+      .update(updatePayload)
       .eq('id', documentId)
       .select()
       .single();

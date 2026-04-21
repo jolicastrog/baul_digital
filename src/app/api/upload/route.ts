@@ -44,6 +44,7 @@ export async function POST(request: Request) {
     const file = formData.get('file') as File | null;
     const categoryId = formData.get('categoryId') as string | null;
     const expiryDate = formData.get('expiryDate') as string | null;
+    const expiryNote = formData.get('expiryNote') as string | null;
 
     if (!file) {
       return NextResponse.json({ error: 'No se recibió ningún archivo' }, { status: 400 });
@@ -135,6 +136,7 @@ export async function POST(request: Request) {
         file_type: file.type,
         storage_path: storagePath,
         expiry_date: expiryDate || null,
+        expiry_note: expiryNote || null,
         tags: [],
         access_level: 'private',
       })

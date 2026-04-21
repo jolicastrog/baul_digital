@@ -14,7 +14,7 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   // { [docId]: 'YYYY-MM-DD' | null } — null significa "sin fecha"
   const [alertsExpanded, setAlertsExpanded] = useState(true);
-  const [editingExpiry, setEditingExpiry] = useState<{ id: string; value: string } | null>(null);
+  const [editingExpiry, setEditingExpiry] = useState<{ id: string; value: string; note: string } | null>(null);
   const [savingExpiry, setSavingExpiry] = useState(false);
   const [preview, setPreview] = useState<{ url: string; name: string; mimeType: string } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -80,6 +80,7 @@ export default function DashboardPage() {
       body: JSON.stringify({
         documentId: editingExpiry.id,
         expiry_date: editingExpiry.value || null,
+        expiry_note: editingExpiry.note || null,
       }),
     });
     if (res.ok) {
@@ -450,41 +451,59 @@ export default function DashboardPage() {
                       <h4 className="text-white font-medium group-hover:text-blue-300 transition-colors">{doc.file_name}</h4>
                       {editingExpiry?.id !== doc.id && getExpiryBadge(doc.expiry_date)}
                     </div>
+                    {editingExpiry?.id !== doc.id && doc.expiry_note && ['premium', 'enterprise'].includes(quota?.plan_type ?? '') && (
+                      <p className="text-xs text-amber-400/80 mt-0.5 flex items-start gap-1 max-w-sm">
+                        <span className="flex-shrink-0 mt-0.5">📝</span>
+                        <span>{doc.expiry_note}</span>
+                      </p>
+                    )}
                     <div className="flex items-center text-sm text-slate-500 mt-1 space-x-3 flex-wrap gap-y-1">
                       <span className="flex items-center"><Clock className="w-3.5 h-3.5 mr-1" />{new Date(doc.created_at).toLocaleDateString()}</span>
                       <span>•</span>
                       <span>{bytesToMB(doc.file_size_bytes)} MB</span>
                       <span>•</span>
                       {editingExpiry?.id === doc.id ? (
-                        <span className="flex items-center gap-1">
-                          <input
-                            type="date"
-                            value={editingExpiry!.value}
-                            onChange={e => setEditingExpiry({ id: doc.id, value: e.target.value })}
-                            className="bg-slate-700 border border-white/10 rounded-lg px-2 py-0.5 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            autoFocus
-                          />
-                          <button
-                            onClick={handleSaveExpiry}
-                            disabled={savingExpiry}
-                            className="p-1 text-emerald-400 hover:text-emerald-300 transition-colors"
-                            title="Guardar"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setEditingExpiry(null)}
-                            className="p-1 text-slate-400 hover:text-slate-200 transition-colors"
-                            title="Cancelar"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
+                        <span className="flex flex-col gap-1.5 w-full">
+                          <span className="flex items-center gap-1">
+                            <input
+                              type="date"
+                              value={editingExpiry!.value}
+                              onChange={e => setEditingExpiry({ ...editingExpiry!, value: e.target.value })}
+                              className="bg-slate-700 border border-white/10 rounded-lg px-2 py-0.5 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              autoFocus
+                            />
+                            <button
+                              onClick={handleSaveExpiry}
+                              disabled={savingExpiry}
+                              className="p-1 text-emerald-400 hover:text-emerald-300 transition-colors"
+                              title="Guardar"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setEditingExpiry(null)}
+                              className="p-1 text-slate-400 hover:text-slate-200 transition-colors"
+                              title="Cancelar"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </span>
+                          {['premium', 'enterprise'].includes(quota?.plan_type ?? '') && (
+                            <textarea
+                              value={editingExpiry!.note}
+                              onChange={e => setEditingExpiry({ ...editingExpiry!, note: e.target.value })}
+                              placeholder="Nota sobre el vencimiento (opcional)"
+                              rows={2}
+                              className="bg-slate-700 border border-white/10 rounded-lg px-2 py-1 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none w-full max-w-xs"
+                            />
+                          )}
                         </span>
                       ) : (
                         <button
                           onClick={() => setEditingExpiry({
                             id: doc.id,
                             value: doc.expiry_date ? doc.expiry_date.split('T')[0] : '',
+                            note: doc.expiry_note ?? '',
                           })}
                           className="flex items-center gap-1 text-slate-500 hover:text-blue-400 transition-colors"
                           title="Editar fecha de caducidad"

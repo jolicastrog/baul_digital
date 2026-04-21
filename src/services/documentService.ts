@@ -37,6 +37,7 @@ export async function uploadDocument(
     formData.append('file', processedFile);
     if (payload.category_id) formData.append('categoryId', payload.category_id);
     if (payload.expiry_date) formData.append('expiryDate', payload.expiry_date.toISOString().split('T')[0]);
+    if (payload.expiry_note) formData.append('expiryNote', payload.expiry_note);
 
     const res = await fetch('/api/upload', { method: 'POST', body: formData });
     const data = await res.json();

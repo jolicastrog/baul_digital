@@ -80,6 +80,7 @@ export interface Document {
   storage_path: string;
   description: string | null;
   expiry_date: string | null;
+  expiry_note: string | null;
   tags: string[];
   is_starred: boolean;
   is_archived: boolean;
@@ -190,6 +191,7 @@ export interface DocumentUploadPayload {
   category_id?: string;
   description?: string;
   expiry_date?: Date;
+  expiry_note?: string;
   tags?: string[];
   access_level?: DocumentAccessLevel;
 }

@@ -35,6 +35,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState(categoryId || '');
   const [expiryDate, setExpiryDate] = useState('');
+  const [expiryNote, setExpiryNote] = useState('');
   const [state, setState] = useState<UploadState>({
     isUploading: false,
     progress: 0,
@@ -78,6 +79,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           file,
           category_id: selectedCategory || undefined,
           expiry_date: expiryDate ? new Date(expiryDate) : undefined,
+          expiry_note: expiryNote || undefined,
           access_level: DocumentAccessLevel.PRIVATE,
         };
 
@@ -121,7 +123,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         onError?.(errorMsg);
       }
     },
-    [userId, selectedCategory, expiryDate, onSuccess, onError, loadStorageQuota]
+    [userId, selectedCategory, expiryDate, expiryNote, onSuccess, onError, loadStorageQuota]
   );
 
   // Procesar archivo seleccionado (Depende de performUpload)
@@ -210,7 +212,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-1">Fecha de Caducidad (Opcional)</label>
-          <input 
+          <input
             type="date"
             value={expiryDate}
             onChange={(e) => setExpiryDate(e.target.value)}
@@ -219,6 +221,23 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           />
         </div>
       </div>
+
+      {/* Nota de vencimiento — solo premium/enterprise y cuando hay fecha */}
+      {expiryDate && ['premium', 'enterprise'].includes(state.storageQuota?.plan_type ?? '') && (
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-1">
+            Nota de vencimiento <span className="text-slate-500 font-normal">(Opcional)</span>
+          </label>
+          <textarea
+            value={expiryNote}
+            onChange={(e) => setExpiryNote(e.target.value)}
+            disabled={state.isUploading}
+            placeholder="Ej: Tramitar crédito en la cooperativa 15 días antes para renovación del SOAT"
+            rows={2}
+            className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+          />
+        </div>
+      )}
 
       {/* Área de carga */}
       <div
