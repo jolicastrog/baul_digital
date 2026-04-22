@@ -160,7 +160,7 @@ export default function PricingPage() {
       .then(d => { if (d?.profile?.plan_type) setCurrentPlan(d.profile.plan_type); });
 
     // Cargar planes desde BD (respeta is_active y precios reales)
-    fetch('/api/plans')
+    fetch('/api/plans', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } })
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();

@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 // Sin caché: los cambios del admin (activar/desactivar/precio) deben reflejarse
 // de inmediato sin esperar expiración de CDN.
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,7 +28,12 @@ export async function GET() {
 
     return NextResponse.json(
       { plans: data ?? [] },
-      { headers: { 'Cache-Control': 'no-store' } }
+      { headers: { 
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        } 
+      }
     );
   } catch (err) {
     console.error('[api/plans] Error:', err);
