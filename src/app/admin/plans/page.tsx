@@ -161,7 +161,7 @@ export default function AdminPlansPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-slate-500 text-xs uppercase border-b border-white/5 bg-slate-900/40">
-                  {['Código', 'Nombre', 'Almacenamiento', 'Docs', 'Arch. máx', 'Precio mensual', 'Estado', 'Acciones'].map(h => (
+                  {['Código', 'Nombre', 'Almacenamiento', 'Docs', 'Arch. máx', 'P. Mensual', 'P. Semestral /mes', 'P. Anual /mes', 'Estado', 'Acciones'].map(h => (
                     <th key={h} className="text-left px-5 py-3 font-medium">{h}</th>
                   ))}
                 </tr>
@@ -194,6 +194,16 @@ export default function AdminPlansPage() {
                       {editing === plan.id
                         ? <input type="number" className={inputCls} value={editData.price_monthly_cop ?? ''} onChange={e => setEditData(p => ({ ...p, price_monthly_cop: Number(e.target.value) }))} />
                         : fmtCOP(plan.price_monthly_cop)}
+                    </td>
+                    <td className="px-5 py-4 text-slate-300">
+                      {editing === plan.id
+                        ? <input type="number" className={inputCls} value={editData.price_semiannual_cop ?? ''} onChange={e => setEditData(p => ({ ...p, price_semiannual_cop: Number(e.target.value) }))} />
+                        : <span className={plan.price_semiannual_cop === 0 ? 'text-red-400 font-semibold' : ''}>{fmtCOP(plan.price_semiannual_cop)}</span>}
+                    </td>
+                    <td className="px-5 py-4 text-slate-300">
+                      {editing === plan.id
+                        ? <input type="number" className={inputCls} value={editData.price_annual_cop ?? ''} onChange={e => setEditData(p => ({ ...p, price_annual_cop: Number(e.target.value) }))} />
+                        : <span className={plan.price_annual_cop === 0 ? 'text-red-400 font-semibold' : ''}>{fmtCOP(plan.price_annual_cop)}</span>}
                     </td>
                     <td className="px-5 py-4">
                       <button onClick={() => toggleActive(plan)} className="transition-colors">
