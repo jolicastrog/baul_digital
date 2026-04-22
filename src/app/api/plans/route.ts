@@ -3,8 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 
 // Endpoint público — no requiere autenticación.
 // La RLS de plans tiene: FOR SELECT USING (TRUE), accesible con anon key.
-export const dynamic  = 'force-dynamic';
-export const revalidate = 300; // cache 5 minutos
+// Sin caché: los cambios del admin (activar/desactivar/precio) deben reflejarse
+// de inmediato sin esperar expiración de CDN.
+export const dynamic = 'force-dynamic';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,7 +27,7 @@ export async function GET() {
 
     return NextResponse.json(
       { plans: data ?? [] },
-      { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60' } }
+      { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (err) {
     console.error('[api/plans] Error:', err);

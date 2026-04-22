@@ -136,8 +136,9 @@ export default function PricingPage() {
   const [loadingPlan, setLoadingPlan] = useState<PlanType | null>(null);
   const [paymentMsg, setPaymentMsg]   = useState<{ text: string; ok: boolean } | null>(null);
   // Planes desde BD (fuente de verdad para precios y visibilidad)
-  const [dbPlans, setDbPlans]         = useState<Record<string, DbPlan>>({});
+  const [dbPlans, setDbPlans]           = useState<Record<string, DbPlan>>({});
   const [plansLoading, setPlansLoading] = useState(true);
+  const [plansError, setPlansError]     = useState(false);
 
   useEffect(() => {
     // Cargar plan activo del usuario
@@ -147,11 +148,18 @@ export default function PricingPage() {
 
     // Cargar planes desde BD (respeta is_active y precios reales)
     fetch('/api/plans')
-      .then(r => r.ok ? r.json() : { plans: [] })
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then(d => {
         const map: Record<string, DbPlan> = {};
         (d.plans as DbPlan[]).forEach(p => { map[p.code] = p; });
         setDbPlans(map);
+      })
+      .catch(err => {
+        console.error('[pricing] Error cargando planes:', err);
+        setPlansError(true);
       })
       .finally(() => setPlansLoading(false));
 
@@ -251,6 +259,13 @@ export default function PricingPage() {
           ))}
         </div>
       </div>
+
+      {/* Error cargando planes */}
+      {plansError && (
+        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
+          No se pudieron cargar los planes. Recarga la página.
+        </div>
+      )}
 
       {/* Tarjetas de planes */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
