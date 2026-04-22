@@ -7,6 +7,7 @@ import {
   CheckCircle2, AlertCircle, Loader2,
   Eye, EyeOff, XCircle,
   CreditCard, Download, Trash2, FileDown,
+  Receipt, Calendar,
 } from 'lucide-react';
 import CategoryManager from '@/components/CategoryManager';
 
@@ -58,6 +59,54 @@ const PLAN_LABELS: Record<string, { label: string; color: string }> = {
   enterprise: { label: 'Enterprise', color: 'bg-purple-600/20 text-purple-400 border border-purple-500/30' },
 };
 
+// ── Tipos historial de pagos ───────────────────────────────────────────────
+interface PaymentRecord {
+  order_id:       string;
+  plan_name:      string;
+  billing_cycle:  string;
+  amount_cop:     number;
+  payment_method: string | null;
+  status:         string;
+  period_start:   string | null;
+  period_end:     string | null;
+  paid_at:        string;
+  transaction_id: string | null;
+}
+
+const CYCLE_LABELS: Record<string, string> = {
+  monthly:    'Mensual',
+  semiannual: 'Semestral',
+  annual:     'Anual',
+};
+
+const METHOD_LABELS: Record<string, string> = {
+  CREDIT_CARD:       'Tarjeta',
+  PSE:               'PSE',
+  NEQUI:             'Nequi',
+  BOTON_BANCOLOMBIA: 'Bancolombia',
+  card:              'Tarjeta',
+  pse:               'PSE',
+  nequi:             'Nequi',
+};
+
+const STATUS_STYLES: Record<string, { label: string; cls: string }> = {
+  approved:     { label: 'Aprobado',   cls: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
+  pending:      { label: 'Pendiente',  cls: 'bg-yellow-500/15  text-yellow-400  border-yellow-500/30'  },
+  rejected:     { label: 'Rechazado',  cls: 'bg-red-500/15     text-red-400     border-red-500/30'     },
+  cancelled:    { label: 'Cancelado',  cls: 'bg-slate-500/15   text-slate-400   border-slate-500/30'   },
+  refunded:     { label: 'Reembolsado',cls: 'bg-blue-500/15    text-blue-400    border-blue-500/30'    },
+  in_mediation: { label: 'En disputa', cls: 'bg-orange-500/15  text-orange-400  border-orange-500/30'  },
+};
+
+function fmtCOP(amount: number) {
+  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(amount);
+}
+
+function fmtDate(iso: string | null) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 function bytesToMB(b: number) { return (b / 1024 / 1024).toFixed(1); }
 
@@ -101,6 +150,16 @@ export default function SettingsPage() {
   const [loading,       setLoading]       = useState(true);
   const [loadError,     setLoadError]     = useState<string | null>(null);
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
+
+  // Historial de pagos
+  const today = new Date();
+  const defaultFrom = new Date(today.getFullYear() - 1, today.getMonth(), 1).toISOString().slice(0, 10);
+  const defaultTo   = today.toISOString().slice(0, 10);
+  const [payHistory,        setPayHistory]        = useState<PaymentRecord[]>([]);
+  const [payHistoryLoading, setPayHistoryLoading] = useState(false);
+  const [payHistoryError,   setPayHistoryError]   = useState<string | null>(null);
+  const [payFrom,           setPayFrom]           = useState(defaultFrom);
+  const [payTo,             setPayTo]             = useState(defaultTo);
 
   // Suscripción
   const [cancelSubReason,  setCancelSubReason]  = useState('');
@@ -180,6 +239,21 @@ export default function SettingsPage() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  // ── Historial de pagos: cargar al cambiar fechas o cuando el perfil carga ─
+  useEffect(() => {
+    if (!profile || profile.plan_type === 'free') return;
+    setPayHistoryLoading(true);
+    setPayHistoryError(null);
+    fetch(`/api/account/payment-history?from=${payFrom}&to=${payTo}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) setPayHistoryError(d.error);
+        else setPayHistory(d.payments ?? []);
+      })
+      .catch(() => setPayHistoryError('No se pudo cargar el historial.'))
+      .finally(() => setPayHistoryLoading(false));
+  }, [profile?.plan_type, payFrom, payTo]);
 
   // ── Validaciones ─────────────────────────────────────────────────────────
   const validateProfileField = (field: string, value: string, tipo?: CedulaTipo): string => {
@@ -499,6 +573,115 @@ export default function SettingsPage() {
           <span className="text-slate-300 font-medium">{storagePercent.toFixed(1)}% utilizado</span>
         </p>
       </div>
+
+      {/* Historial de pagos — solo premium / enterprise */}
+      {profile?.plan_type !== 'free' && (
+        <div className="bg-slate-900 border border-white/5 rounded-2xl p-6 space-y-5">
+          <div className="flex items-center gap-2">
+            <Receipt className="w-5 h-5 text-blue-400" />
+            <h2 className="font-semibold text-white">Historial de pagos</h2>
+          </div>
+
+          {/* Filtros de fecha */}
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-slate-400 flex items-center gap-1">
+                <Calendar className="w-3 h-3" /> Desde
+              </label>
+              <input
+                type="date"
+                value={payFrom}
+                max={payTo}
+                onChange={e => setPayFrom(e.target.value)}
+                className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-slate-400 flex items-center gap-1">
+                <Calendar className="w-3 h-3" /> Hasta
+              </label>
+              <input
+                type="date"
+                value={payTo}
+                min={payFrom}
+                max={defaultTo}
+                onChange={e => setPayTo(e.target.value)}
+                className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              />
+            </div>
+          </div>
+
+          {/* Tabla */}
+          {payHistoryLoading ? (
+            <div className="flex items-center gap-2 text-sm text-slate-400 py-4">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Cargando historial...
+            </div>
+          ) : payHistoryError ? (
+            <div className="flex items-center gap-2 text-sm text-red-400 py-2">
+              <XCircle className="w-4 h-4 flex-shrink-0" />
+              {payHistoryError}
+            </div>
+          ) : payHistory.length === 0 ? (
+            <div className="text-center py-8 space-y-2">
+              <Receipt className="w-8 h-8 text-slate-600 mx-auto" />
+              <p className="text-sm text-slate-500">No hay pagos registrados en este período.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto -mx-1">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b border-white/5">
+                    <th className="pb-2 pr-4 text-xs font-medium text-slate-500 whitespace-nowrap">Fecha</th>
+                    <th className="pb-2 pr-4 text-xs font-medium text-slate-500 whitespace-nowrap">Plan</th>
+                    <th className="pb-2 pr-4 text-xs font-medium text-slate-500 whitespace-nowrap">Ciclo</th>
+                    <th className="pb-2 pr-4 text-xs font-medium text-slate-500 whitespace-nowrap">Método</th>
+                    <th className="pb-2 pr-4 text-xs font-medium text-slate-500 whitespace-nowrap">Monto</th>
+                    <th className="pb-2 text-xs font-medium text-slate-500 whitespace-nowrap">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {payHistory.map(p => {
+                    const st = STATUS_STYLES[p.status] ?? { label: p.status, cls: 'bg-slate-500/15 text-slate-400 border-slate-500/30' };
+                    return (
+                      <tr key={p.order_id} className="group">
+                        <td className="py-3 pr-4 text-slate-300 whitespace-nowrap">{fmtDate(p.paid_at)}</td>
+                        <td className="py-3 pr-4 text-slate-300 whitespace-nowrap">{p.plan_name}</td>
+                        <td className="py-3 pr-4 text-slate-400 whitespace-nowrap">
+                          {CYCLE_LABELS[p.billing_cycle] ?? p.billing_cycle}
+                        </td>
+                        <td className="py-3 pr-4 text-slate-400 whitespace-nowrap">
+                          {METHOD_LABELS[p.payment_method ?? ''] ?? p.payment_method ?? '—'}
+                        </td>
+                        <td className="py-3 pr-4 text-slate-200 font-medium whitespace-nowrap">
+                          {fmtCOP(p.amount_cop)}
+                        </td>
+                        <td className="py-3">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${st.cls}`}>
+                            {st.label}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Resumen total del período */}
+          {payHistory.filter(p => p.status === 'approved').length > 0 && (
+            <div className="flex items-center justify-between pt-3 border-t border-white/5">
+              <span className="text-xs text-slate-500">
+                {payHistory.filter(p => p.status === 'approved').length} pago(s) aprobado(s) en el período
+              </span>
+              <span className="text-sm font-semibold text-white">
+                Total: {fmtCOP(payHistory.filter(p => p.status === 'approved').reduce((s, p) => s + p.amount_cop, 0))}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Datos personales */}
       <div className="bg-slate-900 border border-white/5 rounded-2xl p-6">
