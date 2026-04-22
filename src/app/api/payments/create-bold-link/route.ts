@@ -60,16 +60,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Plan no encontrado' }, { status: 400 });
     }
 
-    const priceMap: Record<string, number> = {
+    // Precio por mes según ciclo × número de meses del período
+    const CYCLE_MONTHS: Record<string, number> = {
+      monthly:    1,
+      semiannual: 6,
+      annual:     12,
+    };
+
+    const monthlyRate: Record<string, number> = {
       monthly:    plan.price_monthly_cop,
       semiannual: plan.price_semiannual_cop,
       annual:     plan.price_annual_cop,
     };
 
-    const totalAmount = priceMap[billingCycle];
-    if (!totalAmount) {
+    const months = CYCLE_MONTHS[billingCycle];
+    const rate   = monthlyRate[billingCycle];
+
+    if (!months || rate == null) {
       return NextResponse.json({ error: 'Ciclo de facturación inválido' }, { status: 400 });
     }
+
+    const totalAmount = rate * months;
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
 
