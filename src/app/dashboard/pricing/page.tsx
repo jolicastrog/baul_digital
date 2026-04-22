@@ -117,6 +117,19 @@ const FAQ = [
   },
 ];
 
+const COMPARISON_DATA: Array<{ feature: string; free: string; premium: string; enterprise: string }> = [
+  { feature: 'Almacenamiento',          free: '20 MB',        premium: '500 MB',       enterprise: '5 GB' },
+  { feature: 'Documentos',              free: '15',           premium: '500',          enterprise: 'Hasta agotar almacen.' },
+  { feature: 'Alertas en pantalla',     free: '✓',            premium: '✓',            enterprise: '✓' },
+  { feature: 'Alertas por email',       free: '—',            premium: '✓',            enterprise: '✓' },
+  { feature: 'Alertas por SMS',         free: '—',            premium: '—',            enterprise: '✓' },
+  { feature: 'Nota por vencimiento',    free: '—',            premium: '✓',            enterprise: '✓' },
+  { feature: 'Categorías',              free: '6 por defecto', premium: 'Hasta 25',    enterprise: 'Ilimitadas' },
+  { feature: 'Compartir documentos',    free: '—',            premium: '✓',            enterprise: '✓' },
+  { feature: 'Panel de administrador',  free: '—',            premium: '—',            enterprise: '✓' },
+  { feature: 'Soporte',                 free: 'Comunidad',    premium: 'Prioritario',  enterprise: '24/7 dedicado' },
+];
+
 function formatCOP(amount: number) {
   return '$' + amount.toLocaleString('es-CO');
 }
@@ -209,6 +222,9 @@ export default function PricingPage() {
     }
   };
 
+  const activePlansConfig = (Object.values(PLAN_CONFIG) as PlanConfig[])
+    .filter(cfg => cfg.id === 'free' || !!dbPlans[cfg.id]);
+
   return (
     <div className="space-y-10 pb-12 max-w-5xl">
       <header className="text-center space-y-3">
@@ -274,10 +290,7 @@ export default function PricingPage() {
             [1, 2, 3].map(i => (
               <div key={i} className="h-96 bg-slate-900/50 rounded-2xl border border-white/5 animate-pulse" />
             ))
-          : (Object.values(PLAN_CONFIG) as PlanConfig[])
-              // Solo mostrar el plan si está activo en BD (o es free que no requiere pago)
-              .filter(cfg => cfg.id === 'free' || !!dbPlans[cfg.id])
-              .map(cfg => {
+          : activePlansConfig.map(cfg => {
                 const db        = dbPlans[cfg.id];
                 const isCurrent = cfg.id === currentPlan;
                 const isPaid    = cfg.id !== 'free';
@@ -413,28 +426,19 @@ export default function PricingPage() {
             <thead>
               <tr className="border-b border-white/5">
                 <th className="text-left px-6 py-3 text-slate-400 font-medium">Característica</th>
-                {(Object.values(PLAN_CONFIG) as PlanConfig[]).map(p => (
+                {activePlansConfig.map(p => (
                   <th key={p.id} className={`px-6 py-3 font-semibold ${p.color}`}>{dbPlans[p.id]?.name ?? p.id}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {[
-                ['Almacenamiento',          '20 MB',        '500 MB',       '5 GB'],
-                ['Documentos',              '15',           '500',          'Hasta agotar almacen.'],
-                ['Alertas en pantalla',     '✓',            '✓',            '✓'],
-                ['Alertas por email',        '—',            '✓',            '✓'],
-                ['Alertas por SMS',          '—',            '—',            '✓'],
-                ['Nota por vencimiento',     '—',            '✓',            '✓'],
-                ['Categorías',              '6 por defecto', 'Hasta 25',    'Ilimitadas'],
-                ['Compartir documentos',    '—',            '✓',            '✓'],
-                ['Panel de administrador',  '—',            '—',            '✓'],
-                ['Soporte',                 'Comunidad',    'Prioritario',  '24/7 dedicado'],
-              ].map(([feature, ...values]) => (
-                <tr key={feature} className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-6 py-3 text-slate-400">{feature}</td>
-                  {values.map((v, i) => (
-                    <td key={i} className="px-6 py-3 text-center text-slate-200">{v}</td>
+              {COMPARISON_DATA.map((row) => (
+                <tr key={row.feature} className="hover:bg-white/[0.02] transition-colors">
+                  <td className="px-6 py-3 text-slate-400">{row.feature}</td>
+                  {activePlansConfig.map(cfg => (
+                    <td key={cfg.id} className="px-6 py-3 text-center text-slate-200">
+                      {row[cfg.id as keyof typeof row]}
+                    </td>
                   ))}
                 </tr>
               ))}
