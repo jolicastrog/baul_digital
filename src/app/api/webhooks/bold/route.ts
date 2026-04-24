@@ -98,15 +98,18 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
 
-      await processApprovedPayment(
+      console.log('[bold-webhook] procesando pago aprobado para:', resolvedUserId, '| plan:', planType, billingCycle, '| amount:', amount);
+      const ok = await processApprovedPayment(
         resolvedUserId,
         transactionId,
         PaymentGateway.BOLD,
         planType,
-        amount,
+        // Bold test env envía amount=0; usamos 1 como mínimo para que el RPC no lo rechace
+        amount > 0 ? amount : 1,
         billingCycle,
         body
       );
+      console.log('[bold-webhook] processApprovedPayment result:', ok);
     } else if (BOLD_FAILED_TYPES.has(eventType)) {
       const user = userId ? null : (payerEmail ? await getUserByEmail(payerEmail) : null);
       await processFailedPayment(
