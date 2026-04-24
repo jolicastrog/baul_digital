@@ -98,8 +98,11 @@ export async function POST(request: NextRequest) {
     // Expiración: 30 minutos desde ahora en nanosegundos
     const expirationDate = (Date.now() + 30 * 60 * 1000) * 1_000_000;
 
-    // reference único (máx 60 chars): codifica plan/ciclo para que el webhook lo extraiga
-    const referenceId = `BD-${planType}-${billingCycle}-${user.id.slice(0, 8)}-${Date.now()}`;
+    // reference (máx 60 chars): BD-{plan}-{cycle}-{uuid-completo}-{6-dígitos}
+    // Ejemplo: BD-pre-mo-edd0d4bb-...-537860 = 53 chars
+    const PLAN_CODE  = planType === 'enterprise' ? 'ent' : 'pre';
+    const CYCLE_CODE: Record<string, string> = { monthly: 'mo', semiannual: 'sa', annual: 'an' };
+    const referenceId = `BD-${PLAN_CODE}-${CYCLE_CODE[billingCycle]}-${user.id}-${String(Date.now()).slice(-6)}`;
 
     console.log('[create-bold-link] referenceId:', referenceId);
 

@@ -63,22 +63,30 @@ export async function POST(request: NextRequest) {
       : 0;
     const payerEmail    = body?.data?.payer_email ?? body?.data?.customer?.email ?? '';
 
-    // El reference tiene formato BD-{planType}-{billingCycle}-{userId8}-{ts}
-    // Bold lo devuelve en data.reference o data.payment_reference
-    const reference = String(body?.data?.reference ?? body?.data?.payment_reference ?? body?.data?.metadata?.reference ?? '');
+    // Bold devuelve el reference en data.metadata.reference
+    const reference = String(body?.data?.reference ?? body?.data?.metadata?.reference ?? '');
     console.log('[bold-webhook] reference:', reference);
 
-    // Extraer plan y ciclo del reference (BD-premium-monthly-edd0d4bb-1777...)
-    let userId   = '';
+    // Formato nuevo: BD-{pre|ent}-{mo|sa|an}-{uuid-completo}-{6digits}
+    // Formato viejo: BD-{premium|enterprise}-{monthly|...}-{8chars}-{ts} (compatibilidad)
+    let resolvedUserId = '';
     let planStr  = '';
     let cycleStr = '';
-    const refMatch = reference.match(/^BD-(premium|enterprise)-(monthly|semiannual|annual)-([a-f0-9]{8})-/);
-    if (refMatch) {
-      planStr  = refMatch[1];
-      cycleStr = refMatch[2];
+
+    const newFmt = reference.match(
+      /^BD-(pre|ent)-(mo|sa|an)-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-/i
+    );
+    if (newFmt) {
+      planStr         = newFmt[1] === 'ent' ? 'enterprise' : 'premium';
+      cycleStr        = ({ mo: 'monthly', sa: 'semiannual', an: 'annual' } as Record<string, string>)[newFmt[2]] ?? 'monthly';
+      resolvedUserId  = newFmt[3];
+    } else {
+      // Compatibilidad con references viejos (sin UUID completo)
+      const oldFmt = reference.match(/^BD-(premium|enterprise)-(monthly|semiannual|annual)-/);
+      if (oldFmt) { planStr = oldFmt[1]; cycleStr = oldFmt[2]; }
     }
 
-    console.log('[bold-webhook] reference parsed:', { planStr, cycleStr }, '| amount:', amount, '| payer:', payerEmail);
+    console.log('[bold-webhook] parsed:', { planStr, cycleStr, resolvedUserId: resolvedUserId.slice(0, 8) || '(vacío)' }, '| payer:', payerEmail);
 
     const planType: PlanType = planStr === 'enterprise' ? PlanType.ENTERPRISE : PlanType.PREMIUM;
     const billingCycle = (['monthly', 'semiannual', 'annual'].includes(cycleStr)
@@ -86,8 +94,7 @@ export async function POST(request: NextRequest) {
       : 'monthly') as 'monthly' | 'semiannual' | 'annual';
 
     if (BOLD_APPROVED_TYPES.has(eventType)) {
-      // Buscar usuario por userId (desde ref) o por email como fallback
-      let resolvedUserId = userId;
+      // Fallback por email si el reference no tenía UUID completo
       if (!resolvedUserId && payerEmail) {
         const user = await getUserByEmail(payerEmail);
         resolvedUserId = user?.id ?? '';
@@ -111,9 +118,9 @@ export async function POST(request: NextRequest) {
       );
       console.log('[bold-webhook] processApprovedPayment result:', ok);
     } else if (BOLD_FAILED_TYPES.has(eventType)) {
-      const user = userId ? null : (payerEmail ? await getUserByEmail(payerEmail) : null);
+      const failedUser = resolvedUserId ? null : (payerEmail ? await getUserByEmail(payerEmail) : null);
       await processFailedPayment(
-        userId || user?.id || null,
+        resolvedUserId || failedUser?.id || null,
         transactionId,
         PaymentGateway.BOLD,
         amount,
