@@ -98,8 +98,8 @@ export async function POST(request: NextRequest) {
     // Expiración: 30 minutos desde ahora en nanosegundos
     const expirationDate = (Date.now() + 30 * 60 * 1000) * 1_000_000;
 
-    // reference_id único por transacción (máx 60 chars alfanuméricos/guiones/underscores)
-    const referenceId = `BD-${user.id.slice(0, 8)}-${Date.now()}`;
+    // reference único (máx 60 chars): codifica plan/ciclo para que el webhook lo extraiga
+    const referenceId = `BD-${planType}-${billingCycle}-${user.id.slice(0, 8)}-${Date.now()}`;
 
     console.log('[create-bold-link] referenceId:', referenceId);
 
@@ -113,10 +113,12 @@ export async function POST(request: NextRequest) {
         amount_type:  'CLOSE',
         description:  `Baúl Digital — ${plan.name} ${CYCLE_LABELS[billingCycle]}`,
         amount: {
-          currency: 'COP',
-          total:    totalAmount,
+          currency:     'COP',
+          total_amount: totalAmount,
+          tip_amount:   0,
+          taxes:        [],
         },
-        reference_id:    referenceId,
+        reference:       referenceId,
         expiration_date: expirationDate,
         callback_url:    `${appUrl}/dashboard/pricing?payment=success`,
         payment_methods: ['CREDIT_CARD', 'PSE', 'NEQUI', 'BOTON_BANCOLOMBIA'],

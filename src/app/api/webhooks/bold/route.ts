@@ -58,24 +58,27 @@ export async function POST(request: NextRequest) {
     const eventType     = body?.type ?? '';
     const transactionId = String(body?.data?.payment_id ?? body?.data?.id ?? body?.id ?? '');
     const amountObj     = body?.data?.amount;
-    // Bold usa "total" en el objeto amount (no "total_amount")
     const amount        = amountObj
-      ? Number(amountObj.total ?? amountObj.total_amount ?? amountObj.amount ?? 0)
+      ? Number(amountObj.total_amount ?? amountObj.total ?? amountObj.amount ?? 0)
       : 0;
     const payerEmail    = body?.data?.payer_email ?? body?.data?.customer?.email ?? '';
 
-    // Leer plan/usuario desde metadata (enviado en create-bold-link)
-    // Bold retorna metadata como objeto { key: value } o array [{ key, value }]
-    const rawMeta   = body?.data?.metadata ?? {};
-    const metaMap: Record<string, string> = Array.isArray(rawMeta)
-      ? Object.fromEntries(rawMeta.map((m: { key: string; value: string }) => [m.key, m.value]))
-      : rawMeta;
+    // El reference tiene formato BD-{planType}-{billingCycle}-{userId8}-{ts}
+    // Bold lo devuelve en data.reference o data.payment_reference
+    const reference = String(body?.data?.reference ?? body?.data?.payment_reference ?? body?.data?.metadata?.reference ?? '');
+    console.log('[bold-webhook] reference:', reference);
 
-    const userId   = metaMap['user_id']       ?? '';
-    const planStr  = metaMap['plan_type']      ?? '';
-    const cycleStr = metaMap['billing_cycle']  ?? '';
+    // Extraer plan y ciclo del reference (BD-premium-monthly-edd0d4bb-1777...)
+    let userId   = '';
+    let planStr  = '';
+    let cycleStr = '';
+    const refMatch = reference.match(/^BD-(premium|enterprise)-(monthly|semiannual|annual)-([a-f0-9]{8})-/);
+    if (refMatch) {
+      planStr  = refMatch[1];
+      cycleStr = refMatch[2];
+    }
 
-    console.log('[bold-webhook] metadata:', metaMap, '| amount:', amount, '| payer:', payerEmail);
+    console.log('[bold-webhook] reference parsed:', { planStr, cycleStr }, '| amount:', amount, '| payer:', payerEmail);
 
     const planType: PlanType = planStr === 'enterprise' ? PlanType.ENTERPRISE : PlanType.PREMIUM;
     const billingCycle = (['monthly', 'semiannual', 'annual'].includes(cycleStr)
