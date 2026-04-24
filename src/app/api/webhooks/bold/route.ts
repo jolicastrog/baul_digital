@@ -35,8 +35,14 @@ function validateBoldSignature(rawBody: string, signature: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    const rawBody  = await request.text();
+    const rawBody   = await request.text();
     const signature = request.headers.get('x-bold-signature') ?? '';
+
+    // Log diagnóstico temporal — headers y body
+    const allHeaders: Record<string, string> = {};
+    request.headers.forEach((val, key) => { allHeaders[key] = val; });
+    console.log('[bold-webhook] headers:', JSON.stringify(allHeaders));
+    console.log('[bold-webhook] rawBody (primeros 300):', rawBody.slice(0, 300));
 
     if (!validateBoldSignature(rawBody, signature)) {
       console.warn('[bold-webhook] Firma inválida');
