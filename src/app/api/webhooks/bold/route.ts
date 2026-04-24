@@ -12,14 +12,22 @@ export const dynamic = 'force-dynamic';
 function validateBoldSignature(rawBody: string, signature: string): boolean {
   try {
     const secret = process.env.BOLD_SECRET_KEY ?? '';
-    const expected = crypto
+    const expectedHex = crypto
+      .createHmac('sha256', secret)
+      .update(rawBody)
+      .digest('hex');
+    const expectedB64 = crypto
       .createHmac('sha256', secret)
       .update(rawBody)
       .digest('base64');
-    return crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expected)
-    );
+    console.log('[bold-webhook] signature recibida:', signature.slice(0, 20) + '...');
+    console.log('[bold-webhook] expected hex:', expectedHex.slice(0, 20) + '...');
+    console.log('[bold-webhook] expected b64:', expectedB64.slice(0, 20) + '...');
+    // Bold envía el HMAC en hex
+    const sigBuf      = Buffer.from(signature);
+    const expectedBuf = Buffer.from(expectedHex);
+    if (sigBuf.length !== expectedBuf.length) return false;
+    return crypto.timingSafeEqual(sigBuf, expectedBuf);
   } catch {
     return false;
   }
