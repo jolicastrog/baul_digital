@@ -114,19 +114,13 @@ export async function POST(request: NextRequest) {
         description:  `Baúl Digital — ${plan.name} ${CYCLE_LABELS[billingCycle]}`,
         amount: {
           currency: 'COP',
-          total:    totalAmount,        // Bold usa "total" no "total_amount"
+          total:    totalAmount,
         },
         reference_id:    referenceId,
         expiration_date: expirationDate,
         callback_url:    `${appUrl}/dashboard/pricing?payment=success`,
         payment_methods: ['CREDIT_CARD', 'PSE', 'NEQUI', 'BOTON_BANCOLOMBIA'],
         payer_email:     user.email,
-        // Metadata para identificar plan/usuario en el webhook (Bold lo devuelve en data.metadata)
-        metadata: [
-          { key: 'user_id',       value: user.id },
-          { key: 'plan_type',     value: planType },
-          { key: 'billing_cycle', value: billingCycle },
-        ],
       }),
     });
 
