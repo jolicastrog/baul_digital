@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
-import crypto from 'crypto';
 import { PlanType } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -99,17 +98,10 @@ export async function POST(request: NextRequest) {
     // Expiración: 30 minutos desde ahora en nanosegundos
     const expirationDate = (Date.now() + 30 * 60 * 1000) * 1_000_000;
 
-    // order_id único por transacción (máx 60 chars alfanuméricos/guiones)
-    const orderId = `BD-${user.id.slice(0, 8)}-${Date.now()}`;
+    // reference_id único por transacción (máx 60 chars alfanuméricos/guiones/underscores)
+    const referenceId = `BD-${user.id.slice(0, 8)}-${Date.now()}`;
 
-    // Firma de integridad requerida por Bold para fijar el monto
-    // Fórmula: SHA256(orderId + amount + currency + secretKey)
-    const integritySignature = crypto
-      .createHash('sha256')
-      .update(`${orderId}${totalAmount}COP${process.env.BOLD_SECRET_KEY ?? ''}`)
-      .digest('hex');
-
-    console.log('[create-bold-link] orderId:', orderId, '| integritySignature generada:', !!integritySignature);
+    console.log('[create-bold-link] referenceId:', referenceId);
 
     const boldRes = await fetch(`${BOLD_BASE_URL}/online/link/v1`, {
       method:  'POST',
@@ -118,16 +110,15 @@ export async function POST(request: NextRequest) {
         'Content-Type':  'application/json',
       },
       body: JSON.stringify({
-        amount_type:          'CLOSE',
-        description:          `Baúl Digital — ${plan.name} ${CYCLE_LABELS[billingCycle]}`,
-        currency:             'COP',
-        amount:               totalAmount,
-        order_id:             orderId,
-        integrity_signature:  integritySignature,
-        expiration_date:      expirationDate,
-        callback_url:         `${appUrl}/dashboard/pricing?payment=success&ref=${planType}|${billingCycle}|${user.id}`,
-        payment_methods:      ['CREDIT_CARD', 'PSE', 'NEQUI', 'BOTON_BANCOLOMBIA'],
-        payer_email:          user.email,
+        amount_type:   'CLOSE',
+        description:   `Baúl Digital — ${plan.name} ${CYCLE_LABELS[billingCycle]}`,
+        currency:      'COP',
+        total_amount:  totalAmount,
+        reference_id:  referenceId,
+        expiration_date: expirationDate,
+        callback_url:  `${appUrl}/dashboard/pricing?payment=success&ref=${planType}|${billingCycle}|${user.id}`,
+        payment_methods: ['CREDIT_CARD', 'PSE', 'NEQUI', 'BOTON_BANCOLOMBIA'],
+        payer_email:   user.email,
       }),
     });
 
