@@ -33,42 +33,50 @@ function validateBoldSignature(rawBody: string, signature: string): boolean {
   }
 }
 
+// Bold usa CloudEvents: type = "SALE_APPROVED" | "SALE_REJECTED" | "SALE_VOIDED"
+const BOLD_APPROVED_TYPES = new Set(['SALE_APPROVED']);
+const BOLD_FAILED_TYPES   = new Set(['SALE_REJECTED', 'SALE_VOIDED', 'SALE_CHARGEBACK']);
+
 export async function POST(request: NextRequest) {
   try {
     const rawBody   = await request.text();
     const signature = request.headers.get('x-bold-signature') ?? '';
 
-    // Log diagnóstico temporal — headers y body
-    const allHeaders: Record<string, string> = {};
-    request.headers.forEach((val, key) => { allHeaders[key] = val; });
-    console.log('[bold-webhook] headers:', JSON.stringify(allHeaders));
-    console.log('[bold-webhook] rawBody (primeros 300):', rawBody.slice(0, 300));
+    console.log('[bold-webhook] rawBody completo:', rawBody);
 
-    if (!validateBoldSignature(rawBody, signature)) {
-      console.warn('[bold-webhook] Firma inválida');
+    // BOLD_SKIP_SIGNATURE=1 solo para diagnóstico — retirar en producción real
+    const skipSig = process.env.BOLD_SKIP_SIGNATURE === '1';
+    if (!skipSig && !validateBoldSignature(rawBody, signature)) {
+      console.warn('[bold-webhook] Firma inválida — signature:', signature.slice(0, 30));
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
     const body = JSON.parse(rawBody);
+    console.log('[bold-webhook] event type:', body?.type, '| data keys:', Object.keys(body?.data ?? {}));
 
-    // Bold envía el estado en body.status o body.data.status según el evento
-    const status        = body?.status ?? body?.data?.status ?? '';
-    const transactionId = String(body?.id ?? body?.data?.id ?? body?.transaction_id ?? '');
-    const amount        = Number(body?.amount ?? body?.data?.amount ?? body?.total_amount ?? 0);
-    const payerEmail    = body?.payer_email ?? body?.data?.payer_email ?? '';
+    // Bold CloudEvents: el tipo de evento determina el estado
+    const eventType     = body?.type ?? '';
+    const transactionId = String(body?.data?.payment_id ?? body?.data?.id ?? body?.id ?? '');
+    const amountObj     = body?.data?.amount;
+    const amount        = amountObj
+      ? Number(amountObj.total_amount ?? amountObj.amount ?? 0)
+      : Number(body?.data?.total_amount ?? body?.total_amount ?? 0);
+    const payerEmail    = body?.data?.customer?.email ?? body?.data?.payer_email ?? body?.payer_email ?? '';
 
     // Extraer plan y ciclo desde callback_url ref param: "premium|monthly|<userId>"
-    const callbackUrl  = body?.callback_url ?? body?.data?.callback_url ?? '';
-    const refMatch     = callbackUrl.match(/ref=([^&]+)/);
-    const refParts     = refMatch ? decodeURIComponent(refMatch[1]).split('|') : [];
+    const callbackUrl = body?.data?.callback_url ?? body?.data?.metadata?.callback_url ?? body?.callback_url ?? '';
+    const refMatch    = callbackUrl.match(/ref=([^&]+)/);
+    const refParts    = refMatch ? decodeURIComponent(refMatch[1]).split('|') : [];
     const [planStr, cycleStr, userId] = refParts;
+
+    console.log('[bold-webhook] callbackUrl:', callbackUrl, '| ref parts:', refParts);
 
     const planType: PlanType = planStr === 'enterprise' ? PlanType.ENTERPRISE : PlanType.PREMIUM;
     const billingCycle = (['monthly', 'semiannual', 'annual'].includes(cycleStr)
       ? cycleStr
       : 'monthly') as 'monthly' | 'semiannual' | 'annual';
 
-    if (status === 'PAID') {
+    if (BOLD_APPROVED_TYPES.has(eventType)) {
       // Buscar usuario por userId (desde ref) o por email como fallback
       let resolvedUserId = userId;
       if (!resolvedUserId && payerEmail) {
@@ -90,7 +98,7 @@ export async function POST(request: NextRequest) {
         billingCycle,
         body
       );
-    } else if (['EXPIRED', 'REJECTED', 'CANCELLED'].includes(status)) {
+    } else if (BOLD_FAILED_TYPES.has(eventType)) {
       const user = userId ? null : (payerEmail ? await getUserByEmail(payerEmail) : null);
       await processFailedPayment(
         userId || user?.id || null,
