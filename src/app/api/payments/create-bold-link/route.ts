@@ -58,8 +58,16 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (planError || !plan) {
+      console.error('[create-bold-link] Plan no encontrado:', { planType, planError });
       return NextResponse.json({ error: 'Plan no encontrado' }, { status: 400 });
     }
+
+    console.log('[create-bold-link] Plan desde BD:', {
+      name: plan.name,
+      price_monthly_cop:    plan.price_monthly_cop,
+      price_semiannual_cop: plan.price_semiannual_cop,
+      price_annual_cop:     plan.price_annual_cop,
+    });
 
     // Precio por mes según ciclo × número de meses del período
     const CYCLE_MONTHS: Record<string, number> = {
@@ -82,6 +90,8 @@ export async function POST(request: NextRequest) {
     }
 
     const totalAmount = rate * months;
+
+    console.log('[create-bold-link] Cálculo:', { billingCycle, rate, months, totalAmount });
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
 
@@ -113,6 +123,7 @@ export async function POST(request: NextRequest) {
     }
 
     const boldData = await boldRes.json();
+    console.log('[create-bold-link] Bold response:', JSON.stringify(boldData));
     const paymentUrl = boldData?.payload?.url ?? boldData?.url;
 
     if (!paymentUrl) {
