@@ -58,18 +58,24 @@ export async function POST(request: NextRequest) {
     const eventType     = body?.type ?? '';
     const transactionId = String(body?.data?.payment_id ?? body?.data?.id ?? body?.id ?? '');
     const amountObj     = body?.data?.amount;
+    // Bold usa "total" en el objeto amount (no "total_amount")
     const amount        = amountObj
-      ? Number(amountObj.total_amount ?? amountObj.amount ?? 0)
-      : Number(body?.data?.total_amount ?? body?.total_amount ?? 0);
-    const payerEmail    = body?.data?.customer?.email ?? body?.data?.payer_email ?? body?.payer_email ?? '';
+      ? Number(amountObj.total ?? amountObj.total_amount ?? amountObj.amount ?? 0)
+      : 0;
+    const payerEmail    = body?.data?.payer_email ?? body?.data?.customer?.email ?? '';
 
-    // Extraer plan y ciclo desde callback_url ref param: "premium|monthly|<userId>"
-    const callbackUrl = body?.data?.callback_url ?? body?.data?.metadata?.callback_url ?? body?.callback_url ?? '';
-    const refMatch    = callbackUrl.match(/ref=([^&]+)/);
-    const refParts    = refMatch ? decodeURIComponent(refMatch[1]).split('|') : [];
-    const [planStr, cycleStr, userId] = refParts;
+    // Leer plan/usuario desde metadata (enviado en create-bold-link)
+    // Bold retorna metadata como objeto { key: value } o array [{ key, value }]
+    const rawMeta   = body?.data?.metadata ?? {};
+    const metaMap: Record<string, string> = Array.isArray(rawMeta)
+      ? Object.fromEntries(rawMeta.map((m: { key: string; value: string }) => [m.key, m.value]))
+      : rawMeta;
 
-    console.log('[bold-webhook] callbackUrl:', callbackUrl, '| ref parts:', refParts);
+    const userId   = metaMap['user_id']       ?? '';
+    const planStr  = metaMap['plan_type']      ?? '';
+    const cycleStr = metaMap['billing_cycle']  ?? '';
+
+    console.log('[bold-webhook] metadata:', metaMap, '| amount:', amount, '| payer:', payerEmail);
 
     const planType: PlanType = planStr === 'enterprise' ? PlanType.ENTERPRISE : PlanType.PREMIUM;
     const billingCycle = (['monthly', 'semiannual', 'annual'].includes(cycleStr)
