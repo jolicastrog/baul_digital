@@ -110,15 +110,17 @@ export async function POST(request: NextRequest) {
         'Content-Type':  'application/json',
       },
       body: JSON.stringify({
-        amount_type:   'CLOSE',
-        description:   `Baúl Digital — ${plan.name} ${CYCLE_LABELS[billingCycle]}`,
-        currency:      'COP',
-        total_amount:  totalAmount,
-        reference_id:  referenceId,
+        amount_type:  'CLOSE',
+        description:  `Baúl Digital — ${plan.name} ${CYCLE_LABELS[billingCycle]}`,
+        amount: {
+          currency:     'COP',
+          total_amount: totalAmount,
+        },
+        reference_id:    referenceId,
         expiration_date: expirationDate,
-        callback_url:  `${appUrl}/dashboard/pricing?payment=success&ref=${planType}|${billingCycle}|${user.id}`,
+        callback_url:    `${appUrl}/dashboard/pricing?payment=success&ref=${planType}|${billingCycle}|${user.id}`,
         payment_methods: ['CREDIT_CARD', 'PSE', 'NEQUI', 'BOTON_BANCOLOMBIA'],
-        payer_email:   user.email,
+        payer_email:     user.email,
       }),
     });
 
