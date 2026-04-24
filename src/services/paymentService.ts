@@ -85,15 +85,11 @@ export async function processFailedPayment(
 }
 
 export async function getUserByEmail(email: string): Promise<{ id: string } | null> {
-  // auth.admin es la fuente canónica con service role key
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
-  if (!authError && authData?.user) {
-    return { id: authData.user.id };
-  }
-  console.error('[getUserByEmail] auth.admin error:', authError);
-
-  // Fallback: tabla profiles
-  const { data, error } = await supabaseAdmin.from('profiles').select('id').eq('email', email).single();
-  if (error) console.error('[getUserByEmail] profiles error:', error);
-  return data;
+  const { data, error } = await supabaseAdmin
+    .from('profiles')
+    .select('id')
+    .eq('email', email)
+    .single();
+  if (error) console.error('[getUserByEmail] profiles error:', error.message, '| email:', email);
+  return data ?? null;
 }
