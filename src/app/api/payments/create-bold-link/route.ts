@@ -17,7 +17,8 @@ const CYCLE_LABELS: Record<string, string> = {
   annual:     'Anual',
 };
 
-const BOLD_BASE_URL = 'https://integrations.api.bold.co';
+// Bold usa la misma URL para test y producción — solo cambian las llaves (BOLD_API_KEY / BOLD_SECRET_KEY)
+const BOLD_BASE_URL = process.env.BOLD_API_URL ?? 'https://integrations.api.bold.co';
 
 export async function POST(request: NextRequest) {
   try {
