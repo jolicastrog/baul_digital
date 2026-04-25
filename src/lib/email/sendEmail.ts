@@ -13,7 +13,8 @@ export type EmailTemplate =
   | 'deletion_warning'
   | 'deletion_confirmed'
   | 'deletion_cancelled'
-  | 'deletion_reminder';
+  | 'deletion_reminder'
+  | 'subscription_cancelled';
 
 interface SendEmailOptions {
   to:        string;

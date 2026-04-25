@@ -58,6 +58,23 @@ const warning = (text: string) =>
 
 /* ── Templates ───────────────────────────────────────────── */
 
+export function subscriptionCancelledHtml(opts: {
+  fullName:  string;
+  planLabel: string;
+  periodEnd: string;
+}) {
+  const { fullName, planLabel, periodEnd } = opts;
+  return layout(`
+    ${h1('Suscripción cancelada')}
+    ${p(`Hola <strong>${fullName}</strong>, hemos registrado la cancelación de tu plan <strong>${planLabel}</strong> en Baúl Digital.`)}
+    ${warning(`Tu plan seguirá activo hasta el <strong>${periodEnd}</strong>. Después de esa fecha tu cuenta pasará automáticamente al plan gratuito.`)}
+    ${p('Durante este período puedes seguir usando todas las funciones incluidas en tu plan actual. No se realizan reembolsos parciales por el tiempo restante.')}
+    ${btn('Ir a mi Baúl', `${BASE_URL}/dashboard`)}
+    ${p('Si cancelaste por error, puedes contratar un nuevo plan en cualquier momento desde la sección de <a href="${BASE_URL}/dashboard/pricing" style="color:#2563eb;">Planes</a>.')}
+    ${p('¿Tienes comentarios sobre por qué cancelaste? Escríbenos a <a href="mailto:soporte@mibauldigital.com" style="color:#2563eb;">soporte@mibauldigital.com</a>.')}
+  `);
+}
+
 export function deletionWarningHtml(opts: {
   fullName:     string;
   scheduledFor: string;

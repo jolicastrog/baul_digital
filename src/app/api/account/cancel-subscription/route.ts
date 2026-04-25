@@ -3,6 +3,8 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { getRequestMeta } from '@/lib/utils/requestMeta';
+import { sendEmail } from '@/lib/email/sendEmail';
+import { subscriptionCancelledHtml } from '@/lib/email/templates';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -58,6 +60,28 @@ export async function POST(request: Request) {
       const status = result.error === 'no_active_subscription' ? 404 : 400;
       return NextResponse.json({ error: result.message ?? result.error }, { status });
     }
+
+    // Email de confirmación (fire-and-forget, igual que request-deletion)
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+
+    const fullName  = profile?.full_name ?? user.email ?? 'Usuario';
+    const planLabel = result.plan_type === 'enterprise' ? 'Enterprise' : 'Premium';
+    const periodEnd = new Date(result.period_end!).toLocaleDateString('es-CO', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    });
+
+    void sendEmail({
+      to:       user.email!,
+      subject:  `Tu suscripción ${planLabel} ha sido cancelada — Baúl Digital`,
+      html:     subscriptionCancelledHtml({ fullName, planLabel, periodEnd }),
+      template: 'subscription_cancelled',
+      userId:   user.id,
+      metadata: { plan_type: result.plan_type, period_end: result.period_end },
+    });
 
     return NextResponse.json({
       success:    true,
