@@ -58,17 +58,16 @@ const PLAN_CONFIG: Record<PlanType, PlanConfig> = {
   },
   premium: {
     id: 'premium',
-    description: 'Para familias y profesionales con mayor volumen documental.',
+    description: 'Para profesionales con mayor volumen documental.',
     icon: <Zap className="w-6 h-6" />,
     color: 'text-blue-400',
     borderColor: 'border-blue-500/40',
     badgeColor: 'bg-blue-600/20 text-blue-400 border border-blue-500/30',
     features: [
       'Todo lo del plan gratuito',
-      'Alertas por correo electrónico',
       'Hasta 25 categorías personalizadas',
       'Nota de recordatorio por fecha de vencimiento',
-      'Compartir documentos con familia',
+      'Archivos de hasta 10 MB por subida',
       'Soporte prioritario',
     ],
     ctaStyle: 'bg-blue-600 hover:bg-blue-500 text-white',
@@ -85,9 +84,7 @@ const PLAN_CONFIG: Record<PlanType, PlanConfig> = {
       'Todo lo del plan Premium',
       'Usuarios y roles ilimitados',
       'Panel de administrador',
-      'Nota de recordatorio por fecha de vencimiento',
-      'Alertas por correo y SMS',
-      'API de integración',
+      'Archivos de hasta 50 MB por subida',
       'Soporte dedicado 24/7',
     ],
     ctaStyle: 'bg-purple-600 hover:bg-purple-500 text-white',
@@ -112,22 +109,20 @@ const FAQ = [
     a: 'Sí. El precio mostrado ya refleja el descuento aplicado al periodo seleccionado. Se factura por adelantado al inicio del periodo.',
   },
   {
-    q: '¿Cuándo estarán disponibles los planes de pago?',
-    a: 'Estamos trabajando en la integración de pagos. Serás notificado en cuanto estén disponibles.',
+    q: '¿Qué métodos de pago se aceptan?',
+    a: 'Aceptamos tarjetas de crédito y débito a través de Bold, pasarela de pagos colombiana. El cobro se realiza por adelantado al inicio de cada periodo.',
   },
 ];
 
 const COMPARISON_DATA: Array<{ feature: string; free: string; premium: string; enterprise: string }> = [
-  { feature: 'Almacenamiento',          free: '20 MB',        premium: '500 MB',       enterprise: '5 GB' },
-  { feature: 'Documentos',              free: '15',           premium: '500',          enterprise: 'Hasta agotar almacen.' },
-  { feature: 'Alertas en pantalla',     free: '✓',            premium: '✓',            enterprise: '✓' },
-  { feature: 'Alertas por email',       free: '—',            premium: '✓',            enterprise: '✓' },
-  { feature: 'Alertas por SMS',         free: '—',            premium: '—',            enterprise: '✓' },
-  { feature: 'Nota por vencimiento',    free: '—',            premium: '✓',            enterprise: '✓' },
+  { feature: 'Almacenamiento',          free: '20 MB',         premium: '500 MB',      enterprise: '5 GB' },
+  { feature: 'Documentos',              free: '15',            premium: '500',         enterprise: 'Hasta agotar almacen.' },
+  { feature: 'Tamaño máx. por archivo', free: '2 MB',          premium: '10 MB',       enterprise: '50 MB' },
+  { feature: 'Alertas en pantalla',     free: '✓',             premium: '✓',           enterprise: '✓' },
+  { feature: 'Nota por vencimiento',    free: '—',             premium: '✓',           enterprise: '✓' },
   { feature: 'Categorías',              free: '6 por defecto', premium: 'Hasta 25',    enterprise: 'Ilimitadas' },
-  { feature: 'Compartir documentos',    free: '—',            premium: '✓',            enterprise: '✓' },
-  { feature: 'Panel de administrador',  free: '—',            premium: '—',            enterprise: '✓' },
-  { feature: 'Soporte',                 free: 'Comunidad',    premium: 'Prioritario',  enterprise: '24/7 dedicado' },
+  { feature: 'Panel de administrador',  free: '—',             premium: '—',           enterprise: '✓' },
+  { feature: 'Soporte',                 free: 'Comunidad',     premium: 'Prioritario', enterprise: '24/7 dedicado' },
 ];
 
 function formatCOP(amount: number) {
