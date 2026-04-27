@@ -38,13 +38,13 @@ export async function sendEmail(opts: SendEmailOptions): Promise<void> {
 
   // Registrar en email_logs (éxito o error)
   void supabaseAdmin.from('email_logs').insert({
-    user_id:  userId,
-    recipient: to,
+    user_id:       userId,
+    recipient:     to,
     template,
     subject,
-    metadata: sendError
-      ? { ...metadata, send_error: sendError.message }
-      : metadata,
+    status:        sendError ? 'failed' : 'sent',
+    error_message: sendError ? sendError.message : null,
+    metadata,
   });
 
   if (sendError) {
