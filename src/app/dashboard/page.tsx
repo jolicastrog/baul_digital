@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [movingDocId, setMovingDocId] = useState<string | null>(null);
   const [movingDocLoading, setMovingDocLoading] = useState<string | null>(null);
+  const [cancellingDeletion, setCancellingDeletion] = useState(false);
 
   useEffect(() => {
     if (!movingDocId) return;
@@ -88,6 +89,19 @@ export default function DashboardPage() {
     }
     setEditingExpiry(null);
     setSavingExpiry(false);
+  };
+
+  const handleCancelDeletion = async () => {
+    if (!window.confirm('¿Estás seguro de que quieres cancelar la solicitud de cierre de cuenta?')) return;
+    setCancellingDeletion(true);
+    const res = await fetch('/api/account/cancel-deletion', { method: 'POST' });
+    if (res.ok) {
+      await fetchDashboardData();
+    } else {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error || 'Error al cancelar la solicitud. Intenta desde Configuración.');
+    }
+    setCancellingDeletion(false);
   };
 
   const handleMoveDoc = async (docId: string, categoryId: string | null) => {
@@ -247,12 +261,14 @@ export default function DashboardPage() {
               {' '}Tienes 30 días para cancelar la solicitud antes de que tu cuenta y documentos sean eliminados permanentemente.
             </p>
           </div>
-          <a
-            href="/dashboard/settings"
-            className="flex-shrink-0 px-4 py-2 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/30 text-sm font-semibold transition-colors whitespace-nowrap"
+          <button
+            onClick={handleCancelDeletion}
+            disabled={cancellingDeletion}
+            className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 disabled:opacity-50 text-orange-400 border border-orange-500/30 text-sm font-semibold transition-colors whitespace-nowrap"
           >
+            {cancellingDeletion && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             Cancelar solicitud
-          </a>
+          </button>
         </div>
       )}
 

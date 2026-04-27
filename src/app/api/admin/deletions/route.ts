@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdmin, supabaseAdmin } from '../_lib/verify-admin';
+import { sendEmail } from '@/lib/email/sendEmail';
+import { deletionCancelledHtml } from '@/lib/email/templates';
 
 // GET — lista solicitudes pendientes O usuarios eliminados
 // ?tab=pending (default) | ?tab=deleted&search=...&limit=20&offset=0
@@ -74,6 +76,26 @@ export async function DELETE(request: NextRequest) {
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 404 });
+    }
+
+    // Notificar al usuario por email
+    if (result.user_id) {
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('full_name, email')
+        .eq('id', result.user_id)
+        .single();
+
+      if (profile?.email) {
+        await sendEmail({
+          to:       profile.email,
+          subject:  'Tu solicitud de cierre de cuenta ha sido cancelada — Baúl Digital',
+          html:     deletionCancelledHtml({ fullName: profile.full_name ?? profile.email }),
+          template: 'deletion_cancelled',
+          userId:   result.user_id,
+          metadata: { cancelled_by: 'admin' },
+        });
+      }
     }
 
     return NextResponse.json({ success: true, user_id: result.user_id });
