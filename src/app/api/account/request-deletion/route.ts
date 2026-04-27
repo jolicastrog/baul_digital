@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       day: 'numeric', month: 'long', year: 'numeric',
     });
 
-    void sendEmail({
+    await sendEmail({
       to:       user.email!,
       subject:  'Solicitud de cierre de cuenta recibida — Baúl Digital',
       html:     deletionWarningHtml({ fullName, scheduledFor, daysRemaining: result.days_remaining! }),

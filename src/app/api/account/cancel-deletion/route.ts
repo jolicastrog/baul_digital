@@ -63,7 +63,7 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .single();
 
-    void sendEmail({
+    await sendEmail({
       to:       user.email!,
       subject:  'Tu solicitud de cierre de cuenta ha sido cancelada — Baúl Digital',
       html:     deletionCancelledHtml({ fullName: profile?.full_name ?? user.email ?? 'Usuario' }),

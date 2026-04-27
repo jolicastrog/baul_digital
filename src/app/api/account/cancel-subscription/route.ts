@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       day: 'numeric', month: 'long', year: 'numeric',
     });
 
-    void sendEmail({
+    await sendEmail({
       to:       user.email!,
       subject:  `Tu suscripción ${planLabel} ha sido cancelada — Baúl Digital`,
       html:     subscriptionCancelledHtml({ fullName, planLabel, periodEnd }),
