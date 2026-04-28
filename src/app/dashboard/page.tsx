@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const [savingExpiry, setSavingExpiry] = useState(false);
   const [preview, setPreview] = useState<{ url: string; name: string; mimeType: string } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewImgError, setPreviewImgError] = useState(false);
   const [movingDocId, setMovingDocId] = useState<string | null>(null);
   const [movingDocLoading, setMovingDocLoading] = useState<string | null>(null);
   const [cancellingDeletion, setCancellingDeletion] = useState(false);
@@ -132,8 +133,9 @@ export default function DashboardPage() {
     return map[ext] ?? 'application/octet-stream';
   };
 
-  const handleOpen = async (docId: string, fileName: string) => {
+  const handleOpen = async (docId: string, fileName: string, storedFileType?: string) => {
     setPreviewLoading(true);
+    setPreviewImgError(false);
     try {
       const res = await fetch(`/api/documents/url?id=${docId}`);
       const data = await res.json();
@@ -141,7 +143,8 @@ export default function DashboardPage() {
         alert(data.error || 'No se pudo obtener el enlace del documento.');
         return;
       }
-      const mimeType = getMimeType(fileName);
+      // Usar el file_type guardado en BD; solo como respaldo derivar de la extensión
+      const mimeType = storedFileType || getMimeType(fileName);
       const previewable = mimeType.startsWith('image/') || mimeType === 'application/pdf';
       if (previewable) {
         setPreview({ url: data.url, name: fileName, mimeType });
@@ -240,11 +243,29 @@ export default function DashboardPage() {
                 title={preview.name}
               />
             ) : preview.mimeType.startsWith('image/') ? (
-              <img
-                src={preview.url}
-                alt={preview.name}
-                className="max-w-full max-h-full object-contain rounded-lg select-none"
-              />
+              previewImgError ? (
+                <div className="flex flex-col items-center justify-center gap-4 text-slate-400">
+                  <FileText className="w-12 h-12 opacity-40" />
+                  <p className="text-sm">No se pudo cargar la imagen.</p>
+                  <a
+                    href={preview.url}
+                    download={preview.name}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-lg text-sm font-medium transition-colors border border-blue-500/30"
+                  >
+                    <Download className="w-4 h-4" />
+                    Descargar imagen
+                  </a>
+                </div>
+              ) : (
+                <img
+                  src={preview.url}
+                  alt={preview.name}
+                  className="max-w-full max-h-full object-contain rounded-lg select-none"
+                  onError={() => setPreviewImgError(true)}
+                />
+              )
             ) : null}
           </div>
         </div>
@@ -593,7 +614,7 @@ export default function DashboardPage() {
                   </div>
 
                   <button
-                    onClick={() => handleOpen(doc.id, doc.file_name)}
+                    onClick={() => handleOpen(doc.id, doc.file_name, doc.file_type)}
                     disabled={previewLoading}
                     className="flex items-center px-4 py-2 text-sm font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 rounded-lg transition-colors"
                   >
