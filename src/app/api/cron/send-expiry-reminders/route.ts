@@ -51,8 +51,11 @@ export async function POST(request: Request) {
   let sent = 0, skipped = 0, failed = 0;
 
   for (const row of pending) {
-    const profile  = row.profiles  as { email: string; full_name: string | null; plan_type: string } | null;
-    const document = row.documents as { file_name: string; expiry_date: string; expiry_note: string | null } | null;
+    const profileRaw  = row.profiles  as unknown;
+    const documentRaw = row.documents as unknown;
+
+    const profile  = (Array.isArray(profileRaw)  ? profileRaw[0]  : profileRaw)  as { email: string; full_name: string | null; plan_type: string } | null;
+    const document = (Array.isArray(documentRaw) ? documentRaw[0] : documentRaw) as { file_name: string; expiry_date: string; expiry_note: string | null } | null;
 
     if (!profile || !document) {
       await supabaseAdmin
