@@ -51,10 +51,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No se recibió ningún archivo' }, { status: 400 });
     }
 
-    // 1. Verificar cuota de almacenamiento (admin bypasa RLS)
+    // 1. Verificar cuota y límites del plan
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('storage_quota_bytes, storage_used_bytes')
+      .select('storage_quota_bytes, storage_used_bytes, plan_type')
       .eq('id', user.id)
       .single();
 
@@ -65,6 +65,31 @@ export async function POST(request: Request) {
         detail: profileError?.message ?? 'profile is null',
         code: profileError?.code,
         user_id: user.id,
+      }, { status: 400 });
+    }
+
+    // Obtener límites del plan desde la tabla plans
+    const { data: planData } = await supabaseAdmin
+      .from('plans')
+      .select('allow_media_files, max_file_size_mb')
+      .eq('code', profile.plan_type)
+      .single();
+
+    const allowMediaFiles = planData?.allow_media_files ?? false;
+    const maxFileSizeMb   = planData?.max_file_size_mb   ?? 10;
+
+    // Validar tipo de archivo: MP3/MP4 solo en planes con allowMedia
+    const MEDIA_TYPES = ['audio/mpeg', 'video/mp4'];
+    if (MEDIA_TYPES.includes(file.type) && !allowMediaFiles) {
+      return NextResponse.json({
+        error: 'Tu plan no permite subir archivos de audio o video. Actualiza a Premium o Empresarial para habilitarlo.',
+      }, { status: 400 });
+    }
+
+    // Validar tamaño máximo según plan
+    if (file.size > maxFileSizeMb * 1024 * 1024) {
+      return NextResponse.json({
+        error: `El archivo excede el límite de ${maxFileSizeMb} MB permitido en tu plan.`,
       }, { status: 400 });
     }
 

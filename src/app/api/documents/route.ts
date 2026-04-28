@@ -62,23 +62,27 @@ export async function GET(_request: Request) {
     const planResult = profile
       ? await supabaseAdmin
           .from('plans')
-          .select('max_documents, max_file_size_mb')
+          .select('max_documents, max_file_size_mb, allow_media_files')
           .eq('code', profile.plan_type)
           .single()
       : null;
 
-    const maxDocuments: number | null = planResult?.data?.max_documents ?? null;
+    const maxDocuments: number | null    = planResult?.data?.max_documents      ?? null;
+    const maxFileSizeMb: number          = planResult?.data?.max_file_size_mb   ?? 10;
+    const allowMediaFiles: boolean       = planResult?.data?.allow_media_files  ?? false;
 
     const quota = profile
       ? {
-          total_bytes: profile.storage_quota_bytes,
-          used_bytes: profile.storage_used_bytes,
-          available_bytes: Math.max(0, profile.storage_quota_bytes - profile.storage_used_bytes),
-          percentage_used: profile.storage_quota_bytes > 0
+          total_bytes:           profile.storage_quota_bytes,
+          used_bytes:            profile.storage_used_bytes,
+          available_bytes:       Math.max(0, profile.storage_quota_bytes - profile.storage_used_bytes),
+          percentage_used:       profile.storage_quota_bytes > 0
             ? (profile.storage_used_bytes / profile.storage_quota_bytes) * 100
             : 0,
-          plan_type: profile.plan_type,
-          max_documents: maxDocuments,
+          plan_type:             profile.plan_type,
+          max_documents:         maxDocuments,
+          max_file_size_mb:      maxFileSizeMb,
+          allow_media_files:     allowMediaFiles,
           deletion_requested_at: profile.deletion_requested_at ?? null,
         }
       : null;

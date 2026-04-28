@@ -4,19 +4,40 @@ import imageCompression, { Options } from 'browser-image-compression';
 // CONSTANTES DE VALIDACIÓN
 // ============================================================================
 
-export const ALLOWED_FILE_TYPES = {
+export const ALLOWED_FILE_TYPES_BASE = {
   'application/pdf': ['.pdf'],
-  'image/jpeg': ['.jpg', '.jpeg'],
-  'image/png': ['.png'],
-  'image/webp': ['.webp'],
+  'image/jpeg':      ['.jpg', '.jpeg'],
+  'image/png':       ['.png'],
+  'image/webp':      ['.webp'],
   'application/msword': ['.doc'],
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
   'application/vnd.ms-excel': ['.xls'],
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
 };
 
-export const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
-export const MAX_FILE_SIZE_COMPRESSED = 300 * 1024; // 300KB después de compresión
+export const ALLOWED_FILE_TYPES_MEDIA = {
+  'audio/mpeg': ['.mp3'],
+  'video/mp4':  ['.mp4'],
+};
+
+// Tipos permitidos según el plan del usuario
+export function getAllowedTypes(allowMedia: boolean) {
+  return allowMedia
+    ? { ...ALLOWED_FILE_TYPES_BASE, ...ALLOWED_FILE_TYPES_MEDIA }
+    : { ...ALLOWED_FILE_TYPES_BASE };
+}
+
+// Construye el atributo accept= del input file
+export function buildAcceptString(allowMedia: boolean): string {
+  const types = getAllowedTypes(allowMedia);
+  return Object.values(types).flat().join(',');
+}
+
+// Compatibilidad hacia atrás
+export const ALLOWED_FILE_TYPES = ALLOWED_FILE_TYPES_BASE;
+
+export const MAX_FILE_SIZE             = 10 * 1024 * 1024; // 10 MB (plan free, default)
+export const MAX_FILE_SIZE_COMPRESSED  = 300 * 1024;        // 300 KB (imágenes comprimidas)
 export const MAX_IMAGE_DIMENSIONS = {
   width: 2048,
   height: 2048,
@@ -34,11 +55,13 @@ export interface ValidationResult {
 /**
  * Valida el tipo de archivo contra la lista permitida
  */
-export function validateFileType(file: File): ValidationResult {
-  if (!file.type || !ALLOWED_FILE_TYPES[file.type as keyof typeof ALLOWED_FILE_TYPES]) {
+export function validateFileType(file: File, allowMedia = false): ValidationResult {
+  const allowed = getAllowedTypes(allowMedia);
+  if (!file.type || !(file.type in allowed)) {
+    const exts = Object.values(allowed).flat().join(', ');
     return {
       valid: false,
-      error: `Tipo de archivo no permitido. Tipos válidos: ${Object.keys(ALLOWED_FILE_TYPES).join(', ')}`,
+      error: `Tipo de archivo no permitido. Formatos válidos: ${exts}.`,
     };
   }
   return { valid: true };
@@ -47,11 +70,12 @@ export function validateFileType(file: File): ValidationResult {
 /**
  * Valida el tamaño del archivo
  */
-export function validateFileSize(file: File, maxSize: number = MAX_FILE_SIZE): ValidationResult {
-  if (file.size > maxSize) {
+export function validateFileSize(file: File, maxSizeMb: number = 10): ValidationResult {
+  const maxBytes = maxSizeMb * 1024 * 1024;
+  if (file.size > maxBytes) {
     return {
       valid: false,
-      error: `El archivo excede el tamaño máximo de ${formatBytes(maxSize)}. Tu archivo pesa ${formatBytes(file.size)}.`,
+      error: `El archivo excede el tamaño máximo de ${maxSizeMb} MB. Tu archivo pesa ${formatBytes(file.size)}.`,
     };
   }
   return { valid: true };
@@ -80,17 +104,19 @@ export function validateFileName(fileName: string): ValidationResult {
 /**
  * Validación completa de archivo
  */
-export function validateFile(file: File): ValidationResult {
-  // 1. Validar nombre
+export function validateFile(
+  file: File,
+  opts: { allowMedia?: boolean; maxFileSizeMb?: number } = {}
+): ValidationResult {
+  const { allowMedia = false, maxFileSizeMb = 10 } = opts;
+
   const nameValidation = validateFileName(file.name);
   if (!nameValidation.valid) return nameValidation;
 
-  // 2. Validar tipo
-  const typeValidation = validateFileType(file);
+  const typeValidation = validateFileType(file, allowMedia);
   if (!typeValidation.valid) return typeValidation;
 
-  // 3. Validar tamaño
-  const sizeValidation = validateFileSize(file);
+  const sizeValidation = validateFileSize(file, maxFileSizeMb);
   if (!sizeValidation.valid) return sizeValidation;
 
   return { valid: true };
@@ -138,14 +164,15 @@ export function shouldCompress(file: File): boolean {
 /**
  * Procesa un archivo: validación y compresión si es necesario
  */
-export async function processFile(file: File): Promise<File> {
-  // Validar
-  const validation = validateFile(file);
+export async function processFile(
+  file: File,
+  opts: { allowMedia?: boolean; maxFileSizeMb?: number } = {}
+): Promise<File> {
+  const validation = validateFile(file, opts);
   if (!validation.valid) {
     throw new Error(validation.error);
   }
 
-  // Comprimir si es necesario
   if (shouldCompress(file)) {
     return await compressImage(file);
   }

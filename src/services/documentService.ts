@@ -28,10 +28,14 @@ export async function getStorageQuota(_userId: string): Promise<StorageQuotaInfo
 
 export async function uploadDocument(
   _userId: string,
-  payload: DocumentUploadPayload
+  payload: DocumentUploadPayload,
+  opts: { allowMedia?: boolean; maxFileSizeMb?: number } = {}
 ): Promise<UploadResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60_000); // 60 s
+
   try {
-    const processedFile = await processFile(payload.file);
+    const processedFile = await processFile(payload.file, opts);
 
     const formData = new FormData();
     formData.append('file', processedFile);
@@ -39,19 +43,24 @@ export async function uploadDocument(
     if (payload.expiry_date) formData.append('expiryDate', payload.expiry_date.toISOString().split('T')[0]);
     if (payload.expiry_note) formData.append('expiryNote', payload.expiry_note);
 
-    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+    const res = await fetch('/api/upload', { method: 'POST', body: formData, signal: controller.signal });
     const data = await res.json();
 
     if (!res.ok) {
-      return { success: false, error: data.error || 'Error al subir el archivo' };
+      return { success: false, error: data.error || 'Error al subir el archivo.' };
     }
     return { success: true, document: data.document, signedUrl: data.signedUrl };
   } catch (error) {
     console.error('Upload document error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido al subir el documento.',
-    };
+    if (error instanceof Error && error.name === 'AbortError') {
+      return { success: false, error: 'La subida tardó demasiado. Verifica tu conexión e intenta de nuevo.' };
+    }
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      return { success: false, error: 'Error de conexión. Verifica tu red e intenta de nuevo.' };
+    }
+    return { success: false, error: error instanceof Error ? error.message : 'Error desconocido al subir el documento.' };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

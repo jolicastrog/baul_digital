@@ -52,7 +52,7 @@ const PLAN_CONFIG: Record<PlanType, PlanConfig> = {
       'Categorías por defecto',
       'Alertas de vencimiento en pantalla',
       'Acceso desde cualquier dispositivo',
-      'Eliminación y edición de fechas',
+      'Formatos: PDF, Word, Excel, imágenes (JPEG, PNG, WebP)',
     ],
     ctaStyle: 'bg-slate-800 text-slate-400 cursor-default',
   },
@@ -67,7 +67,7 @@ const PLAN_CONFIG: Record<PlanType, PlanConfig> = {
       'Todo lo del plan gratuito',
       'Hasta 25 categorías personalizadas',
       'Nota de recordatorio por fecha de vencimiento',
-      'Archivos de hasta 10 MB por subida',
+      'Audio (MP3) y video corto (MP4)',
       'Soporte prioritario',
     ],
     ctaStyle: 'bg-blue-600 hover:bg-blue-500 text-white',
@@ -84,7 +84,7 @@ const PLAN_CONFIG: Record<PlanType, PlanConfig> = {
       'Todo lo del plan Premium',
       'Usuarios y roles ilimitados',
       'Panel de administrador',
-      'Archivos de hasta 50 MB por subida',
+      'Audio (MP3) y video corto (MP4)',
       'Soporte dedicado 24/7',
     ],
     ctaStyle: 'bg-purple-600 hover:bg-purple-500 text-white',
@@ -115,14 +115,15 @@ const FAQ = [
 ];
 
 const COMPARISON_DATA: Array<{ feature: string; free: string; premium: string; enterprise: string }> = [
-  { feature: 'Almacenamiento',          free: '20 MB',         premium: '500 MB',      enterprise: '5 GB' },
-  { feature: 'Documentos',              free: '15',            premium: '500',         enterprise: 'Hasta agotar almacen.' },
-  { feature: 'Tamaño máx. por archivo', free: '2 MB',          premium: '10 MB',       enterprise: '50 MB' },
-  { feature: 'Alertas en pantalla',     free: '✓',             premium: '✓',           enterprise: '✓' },
-  { feature: 'Nota por vencimiento',    free: '—',             premium: '✓',           enterprise: '✓' },
-  { feature: 'Categorías',              free: '6 por defecto', premium: 'Hasta 25',    enterprise: 'Ilimitadas' },
-  { feature: 'Panel de administrador',  free: '—',             premium: '—',           enterprise: '✓' },
-  { feature: 'Soporte',                 free: 'Comunidad',     premium: 'Prioritario', enterprise: '24/7 dedicado' },
+  { feature: 'Almacenamiento',          free: '20 MB',         premium: '500 MB',         enterprise: '5 GB' },
+  { feature: 'Documentos',              free: '15',            premium: '500',            enterprise: 'Hasta agotar almacen.' },
+  { feature: 'Tamaño máx. por archivo', free: '10 MB',         premium: '50 MB',          enterprise: '200 MB' },
+  { feature: 'Formatos',                free: 'Docs + Imágenes', premium: '+ Audio y Video', enterprise: '+ Audio y Video' },
+  { feature: 'Alertas en pantalla',     free: '✓',             premium: '✓',              enterprise: '✓' },
+  { feature: 'Nota por vencimiento',    free: '—',             premium: '✓',              enterprise: '✓' },
+  { feature: 'Categorías',              free: '6 por defecto', premium: 'Hasta 25',       enterprise: 'Ilimitadas' },
+  { feature: 'Panel de administrador',  free: '—',             premium: '—',              enterprise: '✓' },
+  { feature: 'Soporte',                 free: 'Comunidad',     premium: 'Prioritario',    enterprise: '24/7 dedicado' },
 ];
 
 function formatCOP(amount: number) {

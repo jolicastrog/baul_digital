@@ -3,7 +3,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { Upload, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
-import { processFile, formatBytes, validateFile } from '@/utils/fileValidation';
+import { processFile, formatBytes, validateFile, buildAcceptString } from '@/utils/fileValidation';
 import { uploadDocument, getStorageQuota } from '@/services/documentService';
 import { Document, DocumentUploadPayload, StorageQuotaInfo, DocumentAccessLevel } from '@/types';
 
@@ -11,6 +11,8 @@ export interface FileUploadProps {
   userId: string;
   categoryId?: string;
   categories?: any[];
+  allowMedia?: boolean;
+  maxFileSizeMb?: number;
   onSuccess?: (document: Document) => void;
   onError?: (error: string) => void;
   className?: string;
@@ -29,6 +31,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   userId,
   categoryId,
   categories = [],
+  allowMedia = false,
+  maxFileSizeMb = 10,
   onSuccess,
   onError,
   className,
@@ -83,7 +87,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           access_level: DocumentAccessLevel.PRIVATE,
         };
 
-        const result = await uploadDocument(userId, payload);
+        const result = await uploadDocument(userId, payload, { allowMedia, maxFileSizeMb });
 
         clearInterval(progressInterval);
 
@@ -123,7 +127,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         onError?.(errorMsg);
       }
     },
-    [userId, selectedCategory, expiryDate, expiryNote, onSuccess, onError, loadStorageQuota]
+    [userId, selectedCategory, expiryDate, expiryNote, onSuccess, onError, loadStorageQuota, allowMedia, maxFileSizeMb]
   );
 
   // Procesar archivo seleccionado (Depende de performUpload)
@@ -131,7 +135,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     async (file: File) => {
       setState((prev) => ({ ...prev, error: null, success: false }));
 
-      const validation = validateFile(file);
+      const validation = validateFile(file, { allowMedia, maxFileSizeMb });
       if (!validation.valid) {
         const errorMsg = validation.error || 'Archivo inválido';
         setState((prev) => ({ ...prev, error: errorMsg }));
@@ -152,7 +156,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         onError?.(errorMsg);
       }
     },
-    [onError, performUpload]
+    [onError, performUpload, allowMedia, maxFileSizeMb]
   );
 
   // Drag and drop handlers
@@ -259,7 +263,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           onChange={handleInputChange}
           className="hidden"
           disabled={state.isUploading}
-          accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx"
+          accept={buildAcceptString(allowMedia)}
         />
 
         <div className="flex flex-col items-center justify-center space-y-3">

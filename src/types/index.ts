@@ -177,6 +177,10 @@ export interface StorageQuotaInfo {
   available_bytes: number;
   percentage_used: number;
   plan_type: PlanType;
+  max_documents?: number | null;
+  max_file_size_mb?: number;
+  allow_media_files?: boolean;
+  deletion_requested_at?: string | null;
 }
 
 export interface FileCompressionOptions {

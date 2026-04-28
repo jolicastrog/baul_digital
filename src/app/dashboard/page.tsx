@@ -266,7 +266,34 @@ export default function DashboardPage() {
                   onError={() => setPreviewImgError(true)}
                 />
               )
-            ) : null}
+            ) : preview.mimeType.startsWith('video/') ? (
+              <video
+                src={preview.url}
+                controls
+                className="max-w-full max-h-full rounded-lg"
+              />
+            ) : preview.mimeType.startsWith('audio/') ? (
+              <div className="flex flex-col items-center justify-center gap-4 text-slate-400">
+                <FileText className="w-16 h-16 opacity-40" />
+                <p className="text-sm text-slate-300">{preview.name}</p>
+                <audio src={preview.url} controls className="w-full max-w-sm" />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-4 text-slate-400">
+                <FileText className="w-12 h-12 opacity-40" />
+                <p className="text-sm">Vista previa no disponible.</p>
+                <a
+                  href={preview.url}
+                  download={preview.name}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-lg text-sm font-medium transition-colors border border-blue-500/30"
+                >
+                  <Download className="w-4 h-4" />
+                  Descargar
+                </a>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -399,6 +426,8 @@ export default function DashboardPage() {
             <FileUpload
               userId={userId}
               categories={categories}
+              allowMedia={data.quota?.allow_media_files ?? false}
+              maxFileSizeMb={data.quota?.max_file_size_mb ?? 10}
               onSuccess={(doc) => {
                 fetchDashboardData();
                 if (doc.category_id) setActiveCategoryId(doc.category_id);

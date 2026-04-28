@@ -15,6 +15,7 @@ export async function PATCH(
     const allowed = [
       'name', 'storage_bytes', 'max_documents', 'max_file_size_mb',
       'price_monthly_cop', 'price_semiannual_cop', 'price_annual_cop', 'is_active',
+      'allow_media_files',
     ];
     const updates: Record<string, unknown> = {};
     for (const key of allowed) {

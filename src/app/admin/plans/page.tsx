@@ -10,6 +10,7 @@ interface Plan {
   storage_bytes: number;
   max_documents: number | null;
   max_file_size_mb: number;
+  allow_media_files: boolean;
   price_monthly_cop: number;
   price_semiannual_cop: number;
   price_annual_cop: number;
@@ -37,6 +38,7 @@ export default function AdminPlansPage() {
   const [editing, setEditing]       = useState<string | null>(null);
   const [editName, setEditName]     = useState('');
   const [editStrings, setEditStrings] = useState<Record<string, string>>({});
+  const [editAllowMedia, setEditAllowMedia] = useState(false);
   const [saving, setSaving]         = useState(false);
   const [showNew, setShowNew]       = useState(false);
   const [newForm, setNewForm]       = useState(EMPTY_FORM);
@@ -55,6 +57,7 @@ export default function AdminPlansPage() {
   const startEdit = (plan: Plan) => {
     setEditing(plan.id);
     setEditName(plan.name);
+    setEditAllowMedia(plan.allow_media_files);
     setEditStrings({
       storage_bytes:        String(plan.storage_bytes),
       max_documents:        plan.max_documents !== null ? String(plan.max_documents) : '',
@@ -77,6 +80,7 @@ export default function AdminPlansPage() {
       storage_bytes:        Number(editStrings.storage_bytes)        || 0,
       max_documents:        editStrings.max_documents !== '' ? Number(editStrings.max_documents) : null,
       max_file_size_mb:     Number(editStrings.max_file_size_mb)     || 0,
+      allow_media_files:    editAllowMedia,
       price_monthly_cop:    Number(editStrings.price_monthly_cop)    || 0,
       price_semiannual_cop: Number(editStrings.price_semiannual_cop) || 0,
       price_annual_cop:     Number(editStrings.price_annual_cop)     || 0,
@@ -183,7 +187,7 @@ export default function AdminPlansPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-slate-500 text-xs uppercase border-b border-white/5 bg-slate-900/40">
-                  {['Código', 'Nombre', 'Almacenamiento', 'Docs', 'Arch. máx', 'P. Mensual', 'P. Semestral /mes', 'P. Anual /mes', 'Estado', 'Acciones'].map(h => (
+                  {['Código', 'Nombre', 'Almacenamiento', 'Docs', 'Arch. máx', 'Media', 'P. Mensual', 'P. Semestral /mes', 'P. Anual /mes', 'Estado', 'Acciones'].map(h => (
                     <th key={h} className="text-left px-5 py-3 font-medium">{h}</th>
                   ))}
                 </tr>
@@ -211,6 +215,17 @@ export default function AdminPlansPage() {
                       {editing === plan.id
                         ? <input type="text" inputMode="numeric" className={inputCls} placeholder="MB" value={numStr('max_file_size_mb')} onChange={setNum('max_file_size_mb')} />
                         : `${plan.max_file_size_mb} MB`}
+                    </td>
+                    <td className="px-5 py-4">
+                      {editing === plan.id
+                        ? <button onClick={() => setEditAllowMedia((v: boolean) => !v)} className="transition-colors">
+                            {editAllowMedia
+                              ? <ToggleRight className="w-6 h-6 text-green-400" />
+                              : <ToggleLeft className="w-6 h-6 text-slate-500" />}
+                          </button>
+                        : plan.allow_media_files
+                          ? <span className="text-xs font-medium text-green-400">Sí</span>
+                          : <span className="text-xs text-slate-500">No</span>}
                     </td>
                     <td className="px-5 py-4 text-slate-300">
                       {editing === plan.id
