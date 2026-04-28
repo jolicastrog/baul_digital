@@ -14,7 +14,8 @@ export type EmailTemplate =
   | 'deletion_confirmed'
   | 'deletion_cancelled'
   | 'deletion_reminder'
-  | 'subscription_cancelled';
+  | 'subscription_cancelled'
+  | 'expiry_reminder';
 
 interface SendEmailOptions {
   to:        string;

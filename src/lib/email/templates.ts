@@ -136,6 +136,52 @@ export function deletionCancelledHtml(opts: { fullName: string }) {
   `);
 }
 
+export function expiryReminderHtml(opts: {
+  fullName:      string;
+  documentName:  string;
+  expiryDate:    string;
+  daysRemaining: number;
+  expiryNote?:   string | null;
+}): string {
+  const { fullName, documentName, expiryDate, daysRemaining, expiryNote } = opts;
+
+  const urgency =
+    daysRemaining <= 1 ? { color: '#ef4444', label: '¡Vence mañana!',       tone: 'crítico'      } :
+    daysRemaining <= 8 ? { color: '#f97316', label: 'Vence pronto',          tone: 'urgente'      } :
+                         { color: '#3b82f6', label: 'Aviso de vencimiento',  tone: 'informativo'  };
+
+  const daysText = daysRemaining === 1
+    ? '(mañana)'
+    : `en <strong style="color:#e2e8f0;">${daysRemaining} días</strong>`;
+
+  const noteSection = expiryNote
+    ? `<div style="background-color:#0f172a;border-left:3px solid ${urgency.color};padding:12px 16px;margin:16px 0;border-radius:6px;">
+         <p style="margin:0;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Tu recordatorio</p>
+         <p style="margin:6px 0 0;color:#94a3b8;font-size:14px;line-height:1.5;">${expiryNote}</p>
+       </div>`
+    : '';
+
+  return layout(`
+    <div style="text-align:center;margin-bottom:24px;">
+      <span style="display:inline-block;background-color:${urgency.color}22;border:1px solid ${urgency.color}55;color:${urgency.color};font-size:13px;font-weight:700;padding:6px 16px;border-radius:20px;letter-spacing:0.3px;">
+        ${urgency.label}
+      </span>
+    </div>
+    ${h1('Documento próximo a vencer')}
+    ${subtitle(`Hola <strong style="color:#e2e8f0;">${fullName}</strong>.`)}
+    <p style="margin:0 0 14px;font-size:14px;color:#94a3b8;line-height:1.6;">
+      Tu documento <strong style="color:#e2e8f0;">${documentName}</strong> vence el
+      <strong style="color:#e2e8f0;">${expiryDate}</strong> ${daysText}.
+    </p>
+    ${noteSection}
+    ${btn('Ver mis documentos', `${BASE_URL}/dashboard`, urgency.color)}
+    ${divider()}
+    <p style="margin:0;font-size:12px;color:#475569;line-height:1.6;">
+      Si este documento ya fue renovado o no requiere acción, puedes ignorar este correo.
+    </p>
+  `);
+}
+
 export function deletionReminderHtml(opts: {
   fullName:      string;
   scheduledFor:  string;
