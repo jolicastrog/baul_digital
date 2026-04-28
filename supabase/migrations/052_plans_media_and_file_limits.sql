@@ -13,6 +13,6 @@
 ALTER TABLE plans
   ADD COLUMN IF NOT EXISTS allow_media_files BOOLEAN NOT NULL DEFAULT FALSE;
 
-UPDATE plans SET max_file_size_mb = 10,  allow_media_files = FALSE WHERE code = 'free';
+UPDATE plans SET max_file_size_mb = 5,   allow_media_files = FALSE WHERE code = 'free';
 UPDATE plans SET max_file_size_mb = 50,  allow_media_files = TRUE  WHERE code = 'premium';
-UPDATE plans SET max_file_size_mb = 200, allow_media_files = TRUE  WHERE code = 'enterprise';
+UPDATE plans SET max_file_size_mb = 100, allow_media_files = TRUE  WHERE code = 'enterprise';

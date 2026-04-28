@@ -115,9 +115,9 @@ const FAQ = [
 ];
 
 const COMPARISON_DATA: Array<{ feature: string; free: string; premium: string; enterprise: string }> = [
-  { feature: 'Almacenamiento',          free: '20 MB',         premium: '500 MB',         enterprise: '5 GB' },
-  { feature: 'Documentos',              free: '15',            premium: '500',            enterprise: 'Hasta agotar almacen.' },
-  { feature: 'Tamaño máx. por archivo', free: '10 MB',         premium: '50 MB',          enterprise: '200 MB' },
+  { feature: 'Almacenamiento',          free: '50 MB',         premium: '500 MB',         enterprise: '5 GB' },
+  { feature: 'Documentos',              free: '15',            premium: '200',            enterprise: 'Hasta agotar almacen.' },
+  { feature: 'Tamaño máx. por archivo', free: '5 MB',          premium: '50 MB',          enterprise: '100 MB' },
   { feature: 'Formatos',                free: 'Docs + Imágenes', premium: '+ Audio y Video', enterprise: '+ Audio y Video' },
   { feature: 'Alertas en pantalla',     free: '✓',             premium: '✓',              enterprise: '✓' },
   { feature: 'Nota por vencimiento',    free: '—',             premium: '✓',              enterprise: '✓' },
