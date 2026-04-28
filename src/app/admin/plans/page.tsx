@@ -32,15 +32,16 @@ const EMPTY_FORM = {
 };
 
 export default function AdminPlansPage() {
-  const [plans, setPlans]       = useState<Plan[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [editing, setEditing]   = useState<string | null>(null);
-  const [editData, setEditData] = useState<Partial<Plan>>({});
-  const [saving, setSaving]     = useState(false);
-  const [showNew, setShowNew]   = useState(false);
-  const [newForm, setNewForm]   = useState(EMPTY_FORM);
-  const [creating, setCreating] = useState(false);
-  const [error, setError]       = useState('');
+  const [plans, setPlans]           = useState<Plan[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [editing, setEditing]       = useState<string | null>(null);
+  const [editName, setEditName]     = useState('');
+  const [editStrings, setEditStrings] = useState<Record<string, string>>({});
+  const [saving, setSaving]         = useState(false);
+  const [showNew, setShowNew]       = useState(false);
+  const [newForm, setNewForm]       = useState(EMPTY_FORM);
+  const [creating, setCreating]     = useState(false);
+  const [error, setError]           = useState('');
 
   const fetchPlans = async () => {
     setLoading(true);
@@ -53,16 +54,37 @@ export default function AdminPlansPage() {
 
   const startEdit = (plan: Plan) => {
     setEditing(plan.id);
-    setEditData({ ...plan });
+    setEditName(plan.name);
+    setEditStrings({
+      storage_bytes:        String(plan.storage_bytes),
+      max_documents:        plan.max_documents !== null ? String(plan.max_documents) : '',
+      max_file_size_mb:     String(plan.max_file_size_mb),
+      price_monthly_cop:    String(plan.price_monthly_cop),
+      price_semiannual_cop: String(plan.price_semiannual_cop),
+      price_annual_cop:     String(plan.price_annual_cop),
+    });
   };
+
+  const numStr = (key: string) => editStrings[key] ?? '';
+  const setNum = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setEditStrings(p => ({ ...p, [key]: e.target.value.replace(/[^0-9]/g, '') }));
 
   const saveEdit = async () => {
     if (!editing) return;
     setSaving(true);
+    const payload = {
+      name:                 editName,
+      storage_bytes:        Number(editStrings.storage_bytes)        || 0,
+      max_documents:        editStrings.max_documents !== '' ? Number(editStrings.max_documents) : null,
+      max_file_size_mb:     Number(editStrings.max_file_size_mb)     || 0,
+      price_monthly_cop:    Number(editStrings.price_monthly_cop)    || 0,
+      price_semiannual_cop: Number(editStrings.price_semiannual_cop) || 0,
+      price_annual_cop:     Number(editStrings.price_annual_cop)     || 0,
+    };
     const res = await fetch(`/api/admin/plans/${editing}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editData),
+      body: JSON.stringify(payload),
     });
     if (res.ok) { setEditing(null); await fetchPlans(); }
     setSaving(false);
@@ -172,37 +194,37 @@ export default function AdminPlansPage() {
                     <td className="px-5 py-4 font-mono text-slate-300">{plan.code}</td>
                     <td className="px-5 py-4">
                       {editing === plan.id
-                        ? <input className={inputCls} value={editData.name ?? ''} onChange={e => setEditData(p => ({ ...p, name: e.target.value }))} />
+                        ? <input className={inputCls} value={editName} onChange={e => setEditName(e.target.value)} />
                         : <span className="font-medium text-white">{plan.name}</span>}
                     </td>
                     <td className="px-5 py-4 text-slate-300">
                       {editing === plan.id
-                        ? <input type="number" className={inputCls} value={editData.storage_bytes ?? ''} onChange={e => setEditData(p => ({ ...p, storage_bytes: Number(e.target.value) }))} />
+                        ? <input type="text" inputMode="numeric" className={inputCls} placeholder="bytes" value={numStr('storage_bytes')} onChange={setNum('storage_bytes')} />
                         : fmtBytes(plan.storage_bytes)}
                     </td>
                     <td className="px-5 py-4 text-slate-300">
                       {editing === plan.id
-                        ? <input type="number" className={inputCls} value={editData.max_documents ?? ''} onChange={e => setEditData(p => ({ ...p, max_documents: e.target.value ? Number(e.target.value) : null }))} />
+                        ? <input type="text" inputMode="numeric" className={inputCls} placeholder="∞ vacío" value={numStr('max_documents')} onChange={setNum('max_documents')} />
                         : plan.max_documents ?? '∞'}
                     </td>
                     <td className="px-5 py-4 text-slate-300">
                       {editing === plan.id
-                        ? <input type="number" className={inputCls} value={editData.max_file_size_mb ?? ''} onChange={e => setEditData(p => ({ ...p, max_file_size_mb: Number(e.target.value) }))} />
+                        ? <input type="text" inputMode="numeric" className={inputCls} placeholder="MB" value={numStr('max_file_size_mb')} onChange={setNum('max_file_size_mb')} />
                         : `${plan.max_file_size_mb} MB`}
                     </td>
                     <td className="px-5 py-4 text-slate-300">
                       {editing === plan.id
-                        ? <input type="number" className={inputCls} value={editData.price_monthly_cop ?? ''} onChange={e => setEditData(p => ({ ...p, price_monthly_cop: Number(e.target.value) }))} />
+                        ? <input type="text" inputMode="numeric" className={inputCls} placeholder="COP" value={numStr('price_monthly_cop')} onChange={setNum('price_monthly_cop')} />
                         : fmtCOP(plan.price_monthly_cop)}
                     </td>
                     <td className="px-5 py-4 text-slate-300">
                       {editing === plan.id
-                        ? <input type="number" className={inputCls} value={editData.price_semiannual_cop ?? ''} onChange={e => setEditData(p => ({ ...p, price_semiannual_cop: Number(e.target.value) }))} />
+                        ? <input type="text" inputMode="numeric" className={inputCls} placeholder="COP" value={numStr('price_semiannual_cop')} onChange={setNum('price_semiannual_cop')} />
                         : <span className={plan.price_semiannual_cop === 0 ? 'text-red-400 font-semibold' : ''}>{fmtCOP(plan.price_semiannual_cop)}</span>}
                     </td>
                     <td className="px-5 py-4 text-slate-300">
                       {editing === plan.id
-                        ? <input type="number" className={inputCls} value={editData.price_annual_cop ?? ''} onChange={e => setEditData(p => ({ ...p, price_annual_cop: Number(e.target.value) }))} />
+                        ? <input type="text" inputMode="numeric" className={inputCls} placeholder="COP" value={numStr('price_annual_cop')} onChange={setNum('price_annual_cop')} />
                         : <span className={plan.price_annual_cop === 0 ? 'text-red-400 font-semibold' : ''}>{fmtCOP(plan.price_annual_cop)}</span>}
                     </td>
                     <td className="px-5 py-4">
