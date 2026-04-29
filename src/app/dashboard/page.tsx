@@ -146,7 +146,11 @@ export default function DashboardPage() {
       }
       // Usar el file_type guardado en BD; solo como respaldo derivar de la extensión
       const mimeType = storedFileType || getMimeType(fileName);
-      const previewable = mimeType.startsWith('image/') || mimeType === 'application/pdf';
+      const previewable =
+        mimeType.startsWith('image/') ||
+        mimeType === 'application/pdf' ||
+        mimeType.startsWith('audio/') ||
+        mimeType.startsWith('video/');
       if (previewable) {
         setPreview({ url: data.url, name: fileName, mimeType });
       } else {
