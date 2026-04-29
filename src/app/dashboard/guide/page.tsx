@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   Upload, FolderOpen, Calendar, Eye, Bell, ShieldCheck,
   CheckCircle2, Zap, ArrowRight, ChevronDown, ChevronUp,
-  BookOpen, CreditCard,
+  BookOpen, CreditCard, XCircle, UserX,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -118,6 +118,50 @@ const SECTIONS = [
       { text: 'Las alertas en pantalla son visibles para todos los planes sin costo adicional.', premium: false },
       { text: 'Plan Premium / Empresarial: además de la alerta en pantalla, recibes un correo electrónico automático 30 días, 8 días y 1 día antes del vencimiento.', premium: true },
       { text: 'Los correos de recordatorio pueden activarse o desactivarse desde el panel de administración.', premium: true },
+    ],
+    limits: null,
+  },
+  {
+    id: 'subscription',
+    Icon: XCircle,
+    color: 'text-sky-400',
+    borderColor: 'border-sky-500/30',
+    bg: 'bg-sky-500/5',
+    iconBg: 'bg-sky-500/15',
+    title: 'Gestión de suscripción',
+    intro: 'Cómo cancelar tu plan Premium o Empresarial y qué ocurre después.',
+    steps: [
+      { label: 'Ir a Configuración', desc: 'En el menú lateral, abre "Configuración". En la sección "Suscripción" verás tu plan actual, la fecha de próxima renovación y el botón para cancelar.' },
+      { label: 'Cancelar el plan', desc: 'Haz clic en "Cancelar suscripción" y confirma la acción. El plan permanecerá activo hasta el final del período ya pagado — no se realiza cobro adicional ni reembolso parcial.' },
+      { label: 'Downgrade automático', desc: 'Al vencer el período pagado, un proceso automático (1 AM UTC) degrada tu cuenta al plan Gratuito. Si en ese momento tienes más documentos o almacenamiento del permitido en Gratuito, no podrás subir archivos nuevos hasta liberar espacio.' },
+      { label: 'Reactivar el plan', desc: 'Puedes contratar de nuevo Premium o Empresarial en cualquier momento desde la sección "Planes" del menú lateral.' },
+    ],
+    notes: [
+      { text: 'Solo los planes de pago (Premium y Empresarial) pueden cancelarse. El plan Gratuito no tiene suscripción activa.', premium: false },
+      { text: 'No se realizan reembolsos parciales por el tiempo no utilizado del período contratado.', premium: false },
+      { text: 'Tus documentos no se eliminan al cancelar el plan — solo no podrás subir archivos nuevos si superas los límites del plan Gratuito.', premium: false },
+    ],
+    limits: null,
+  },
+  {
+    id: 'deletion',
+    Icon: UserX,
+    color: 'text-rose-400',
+    borderColor: 'border-rose-500/30',
+    bg: 'bg-rose-500/5',
+    iconBg: 'bg-rose-500/15',
+    title: 'Dar de baja / Eliminar cuenta',
+    intro: 'Solicita la eliminación total de tu cuenta con un período de gracia de 30 días.',
+    steps: [
+      { label: 'Solicitar la eliminación', desc: 'Ve a Configuración → sección "Zona de peligro" → "Eliminar mi cuenta". Al confirmar, se programa la eliminación definitiva 30 días después.' },
+      { label: 'Período de gracia (30 días)', desc: 'Durante esos 30 días puedes cancelar la solicitud desde Configuración o desde el aviso naranja que aparece en la parte superior de tu bóveda. Mientras tanto tu cuenta sigue funcionando con normalidad.' },
+      { label: 'Correos de notificación', desc: 'Recibirás: (1) un correo inmediato al solicitar la eliminación, (2) un recordatorio entre 6 y 8 días antes de la fecha programada, y (3) un correo de confirmación tras la ejecución.' },
+      { label: 'Eliminación definitiva', desc: 'Pasados los 30 días, todos tus documentos y datos de cuenta se eliminan de forma permanente e irreversible. No es posible recuperar ningún archivo después de este punto.' },
+    ],
+    notes: [
+      { text: 'Tus metadatos personales (nombre, email) se archivan durante 5 años en cumplimiento de la Ley 1581 de 2012 (Habeas Data Colombia). Los documentos sí se eliminan definitivamente.', premium: false },
+      { text: 'Si tienes una suscripción de pago activa, esta también se cancela al solicitar la baja. No se emiten reembolsos.', premium: false },
+      { text: 'Puedes cancelar la solicitud de eliminación hasta que el proceso automático la ejecute (diariamente a las 3 AM UTC). Una vez ejecutada, el proceso es irreversible.', premium: false },
     ],
     limits: null,
   },
