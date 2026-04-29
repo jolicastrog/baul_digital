@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   Upload, FolderOpen, Calendar, Eye, Bell, ShieldCheck,
-  CheckCircle2, Lock, Zap, ArrowRight, ChevronDown, ChevronUp,
+  CheckCircle2, Zap, ArrowRight, ChevronDown, ChevronUp,
   BookOpen, CreditCard,
 } from 'lucide-react';
 import Link from 'next/link';
