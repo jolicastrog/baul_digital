@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, HardDrive, FileText, Clock, AlertCircle, AlertTriangle, ShieldAlert, Trash2, Search, Download, Pencil, Check, X, ChevronDown, Eye, FolderInput, Loader2 } from 'lucide-react';
 import { FileUpload } from '@/components/FileUpload';
+import { OnboardingPanel } from '@/components/OnboardingPanel';
 import { deleteDocument } from '@/services/documentService';
 
 export default function DashboardPage() {
@@ -318,6 +319,15 @@ export default function DashboardPage() {
             Cancelar solicitud
           </button>
         </div>
+      )}
+
+      {/* Panel de onboarding — visible hasta que el usuario lo descarte */}
+      {!loading && (
+        <OnboardingPanel
+          documents={documents}
+          quota={quota}
+          onTriggerUpload={() => setIsUploading(true)}
+        />
       )}
 
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
