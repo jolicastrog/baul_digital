@@ -3,13 +3,14 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { LayoutDashboard, FileText, Settings, ShieldCheck, LogOut, CreditCard, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FileText, Settings, ShieldCheck, LogOut, CreditCard, BookOpen, Menu, X } from 'lucide-react';
 import LegalFooter from '@/components/LegalFooter';
 
 const NAV_LINKS = [
   { href: '/dashboard',          icon: LayoutDashboard, label: 'Inicio' },
   { href: '/dashboard',          icon: FileText,         label: 'Mis Archivos' },
   { href: '/dashboard/pricing',  icon: CreditCard,       label: 'Planes' },
+  { href: '/dashboard/guide',    icon: BookOpen,         label: 'Guía de uso' },
   { href: '/dashboard/settings', icon: Settings,         label: 'Configuración' },
 ];
 
